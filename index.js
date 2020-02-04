@@ -71,7 +71,13 @@ class instance extends instance_skel {
 				],
 				callback: (feedback) => {
 					debug('Feedback callback called');
+					self._unsubscribeAll();
+					self._clearInstanceVariables();
+
 					self._addMqttFeedback(feedback)
+
+					self._refreshMqttSubscriptions();
+					self._updateInstanceVariables();
 				}
 			}
 		});
@@ -155,7 +161,9 @@ class instance extends instance_skel {
 						label: 'QoS',
 						id: 'qos',
 						default: 0,
-						width: 4
+						width: 4,
+						min: 0,
+						max: 2
 					},
 					{
 						type: 'checkbox',
@@ -205,14 +213,8 @@ class instance extends instance_skel {
 			}
 		};
 
-		debug(obj);
-
-		self._unsubscribeAll();
-		self._clearInstanceVariables();
 		self.mqtt_topic_subscriptions.set(feedback.id, obj);
 
-		self._refreshMqttSubscriptions();
-		self._updateInstanceVariables();
 	}
 
 	_initMqtt() {
@@ -316,7 +318,15 @@ class instance extends instance_skel {
 		self.system.emit('feedbacks_for_instance', self.id, function (feedbacks) {
 			feedbacks.forEach((feedback) => {
 				debug('Initializing existing MQTT feedbacks.');
+				debug(feedback);
+
+				self._unsubscribeAll();
+				self._clearInstanceVariables();
+
 				self._addMqttFeedback(feedback);
+
+				self._refreshMqttSubscriptions();
+				self._updateInstanceVariables();
 			})
 		})
 	}
@@ -325,7 +335,7 @@ class instance extends instance_skel {
 		var self = this;
 
 		var vars = [...self.mqtt_topic_subscriptions.values()].map(function(sub) {
-			debug(sub);
+
 			return {
 				label: `MQTT value from topic: ${sub.topic}`,
 				name: sub.options.variable,
