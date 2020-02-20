@@ -1,22 +1,23 @@
 {
-  "name": "mqtt",
-  "version": "1.0.0",
-  "description": "MQTT module for Companion app",
-  "main": "index.js",
-  "manufacturer": "Generic",
-  "product": "MQTT",
-  "shortname": "mqtt",
-  "keywords": [
-    "Protocol",
-    "Generic"
-  ],
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Matt Snyder <matt@obscurelogic.com>",
-  "license": "MIT",
-  "dependencies": {
-    "mqtt": "^3.0.0",
-    "mqtt-match": "^2.0.3"
-  }
+	"name": "mqtt",
+	"version": "1.0.1",
+	"api_version": "1.0.0",
+	"description": "MQTT module for Companion app",
+	"main": "index.js",
+	"manufacturer": "Generic",
+	"product": "MQTT",
+	"shortname": "mqtt",
+	"keywords": [
+		"Protocol",
+		"Generic"
+	],
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"author": "Matt Snyder <matt@obscurelogic.com>",
+	"license": "MIT",
+	"dependencies": {
+		"mqtt": "^3.0.0",
+		"mqtt-match": "^2.0.3"
+	}
 }
