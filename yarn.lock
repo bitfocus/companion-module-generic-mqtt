@@ -311,6 +311,11 @@ minimist@^1.1.0, minimist@^1.2.0:
   resolved "https://registry.yarnpkg.com/minimist/-/minimist-1.2.0.tgz#a35008b20f41383eec1fb914f4cd5df79a264284"
   integrity sha1-o1AIsg9BOD7sH7kU9M1d95omQoQ=
 
+mqtt-match@^2.0.3:
+  version "2.0.3"
+  resolved "https://registry.yarnpkg.com/mqtt-match/-/mqtt-match-2.0.3.tgz#0f6749cfe270cd6eccce48591d58d9196b5590ef"
+  integrity sha512-xUbjAQjnNKON3AP72E+ibwVoNB/zGR/Bv+0dj0vIAJbBkivIM1thiDpztZyNxCRtM+Ad1fLdFSskxyWhn15TuQ==
+
 mqtt-packet@^6.0.0:
   version "6.3.0"
   resolved "https://registry.yarnpkg.com/mqtt-packet/-/mqtt-packet-6.3.0.tgz#ca8b387475c186dc05c52050a45d6eb0bbfccdb3"
