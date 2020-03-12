@@ -1,5 +1,8 @@
 {
-	"name": "mqtt",
+	"name": "generic-mqtt",
+	"legacy": [
+		"mqtt"
+	],
 	"version": "1.0.1",
 	"api_version": "1.0.0",
 	"description": "MQTT module for Companion app",
