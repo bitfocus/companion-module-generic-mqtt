@@ -2,6 +2,29 @@ var instance_skel = require('../../instance_skel');
 var mqtt = require("mqtt");
 var debounceFn = require('debounce-fn')
 
+function ForegroundPicker(color) {
+  return {
+    type: 'colorpicker',
+    label: 'Foreground color',
+    id: 'fg',
+    default: color
+  }
+}
+function BackgroundPicker(color) {
+  return {
+    type: 'colorpicker',
+    label: 'Background color',
+    id: 'bg',
+    default: color
+  }
+}
+function getOptColors(evt) {
+  return {
+    color: Number(evt.options.fg),
+    bgcolor: Number(evt.options.bg)
+  }
+}
+
 class instance extends instance_skel {
 
 	constructor(system, id, config) {
@@ -25,7 +48,6 @@ class instance extends instance_skel {
 
 		self._initMqtt();
 	}
-	
 
 	init() {
 		var self = this;
@@ -89,6 +111,64 @@ class instance extends instance_skel {
 				unsubscribe: (feedback) => {
 					self._unsubscribeToTopic(feedback.options.subscribeTopic, feedback.id)
 					self.debounceUpdateInstanceVariables()
+				}
+			},
+			mqtt_value: {
+				label: 'Change colors from MQTT topic value',
+				description: 'If the specified MQTT topic value matches this condition, change color of the bank.',
+				options: [
+					BackgroundPicker(self.rgb(0, 255, 0)),
+					ForegroundPicker(self.rgb(0, 0, 0)),
+					{
+						type: 'textinput',
+						label: 'Topic',
+						id: 'subscribeTopic',
+						default: ''
+					},
+					{
+						type: 'textinput',
+						label: 'Value',
+						id: 'value',
+						default: ''
+					},
+					{
+						type: 'dropdown',
+						label: 'Comparison',
+						id: 'comparison',
+						default: 'eq',
+						choices: [
+							{ id: 'eq', label: '=' },
+							{ id: 'ne', label: '!=' },
+							{ id: 'lt', label: '<' },
+							{ id: 'lte', label: '<=' },
+							{ id: 'gt', label: '>' },
+							{ id: 'gte', label: '>=' },
+						]
+					}
+				],
+				callback: (feedback) => {
+					const value = self.mqtt_topic_value_cache.get(feedback.options.subscribeTopic)
+					if (value !== undefined) {
+						const checks = {
+							eq: value == feedback.options.value,
+							ne: value != feedback.options.value,
+							lt: value < feedback.options.value,
+							lte: value <= feedback.options.value,
+							gt: value > feedback.options.value,
+							gte: value >= feedback.options.value
+						}
+						if (checks[feedback.options.comparison]) {
+							return getOptColors(feedback)
+						}
+					}
+
+					return {}
+				},
+				subscribe: (feedback) => {
+					self._subscribeToTopic(feedback.options.subscribeTopic, feedback.id, 'mqtt_value')
+				},
+				unsubscribe: (feedback) => {
+					self._unsubscribeToTopic(feedback.options.subscribeTopic, feedback.id)
 				}
 			}
 		});
@@ -281,21 +361,7 @@ class instance extends instance_skel {
 
 		self.debug('Sending MQTT message', [topic, payload]);
 
-		self._reconnectMqtt();
-
 		self.mqttClient.publish(topic, payload, {qos: qos, retain: retain})
-	}
-
-	_reconnectMqtt() {
-		var self = this;
-
-		if (!self.mqttClient.connected) {
-			self.mqttClient.reconnect();
-
-			if (!self.mqttClient.connected) {
-				self.status(self.STATUS_WARNING, 'Offline')
-			}
-		}
 	}
 
 	_handleMqttMessage(topic, message) {
@@ -308,7 +374,7 @@ class instance extends instance_skel {
 
 		const subscriptions = self.mqtt_topic_subscriptions.get(topic)
 		if (subscriptions) {
-			self.mqtt_topic_value_cache.set(message)
+			self.mqtt_topic_value_cache.set(topic, message)
 
 			const feedbacksToUpdate = Array.from(new Set(Object.values(subscriptions).map(s => s.type)))
 			feedbacksToUpdate.forEach(type => {
