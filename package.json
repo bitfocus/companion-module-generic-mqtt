@@ -20,7 +20,7 @@
 	"author": "Matt Snyder <matt@obscurelogic.com>",
 	"license": "MIT",
 	"dependencies": {
-		"mqtt": "^3.0.0",
-		"mqtt-match": "^2.0.3"
+		"debounce-fn": "^4.0.0",
+		"mqtt": "^3.0.0"
 	}
 }
