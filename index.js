@@ -1,7 +1,6 @@
 var instance_skel = require('../../instance_skel');
 var mqtt = require("mqtt");
 var match = require("mqtt-match");
-var mqttClient;
 
 class instance extends instance_skel {
 	constructor(system, id, config) {
@@ -9,7 +8,6 @@ class instance extends instance_skel {
 
 		var self = this;
 
-		self.system = system;
 		self.mqtt_topic_subscriptions = new Map();
 
 		self.actions(); // export actions
@@ -39,7 +37,6 @@ class instance extends instance_skel {
 			self._clearInstanceVariables();
 			self._updateInstanceFeedbacks();
 		});
-
 
 	}
 
@@ -125,8 +122,8 @@ class instance extends instance_skel {
 	}
 
 	destroy() {
-		if (mqttClient && mqttClient.connected) {
-			mqttClient.disconnect()
+		if (self.mqttClient && self.mqttClient.connected) {
+			self.mqttClient.disconnect()
 		}
 	}
 
@@ -216,28 +213,28 @@ class instance extends instance_skel {
 	_initMqtt() {
 		var self = this;
 
-		mqttClient = mqtt.connect(self.config.protocol + self.config.broker_ip, {
+		self.mqttClient = mqtt.connect(self.config.protocol + self.config.broker_ip, {
 			username: self.config.user,
 			password: self.config.password
 		});
 
-		mqttClient.on('connect', () => {
+		self.mqttClient.on('connect', () => {
 			self.status(self.STATUS_OK)
 		});
 
-		mqttClient.on('error', error => {
+		self.mqttClient.on('error', error => {
 			self.status(self.STATUS_ERROR, error)
 		});
 
-		mqttClient.on('offline', () => {
+		self.mqttClient.on('offline', () => {
 			self.status(self.STATUS_WARNING, 'Offline')
 		});
 
-		mqttClient.on('packetreceive', packet => {
+		self.mqttClient.on('packetreceive', packet => {
 			self.debug('MQTT', packet)
 		});
 
-		mqttClient.on('message', function(topic, message, packet) {
+		self.mqttClient.on('message', function(topic, message, packet) {
 			self._handleMqttMessage(topic, message, packet)
 		})
 	}
@@ -249,7 +246,7 @@ class instance extends instance_skel {
 
 		self._reconnectMqtt();
 
-		mqttClient.publish(topic, payload, {qos: qos, retain: retain})
+		self.mqttClient.publish(topic, payload, {qos: qos, retain: retain})
 	}
 
 	_refreshMqttSubscriptions() {
@@ -258,7 +255,7 @@ class instance extends instance_skel {
 		self.debug('Refreshing MQTT subscriptions: ', self.mqtt_topic_subscriptions);
 
 		self.mqtt_topic_subscriptions.forEach((obj, index) => {
-			mqttClient.subscribe(obj.topic, (err) => {
+			self.mqttClient.subscribe(obj.topic, (err) => {
 				if (!err) {
 					self.debug(`Successfully subscribed to topic: ${obj.topic}`)
 					return;
@@ -272,10 +269,10 @@ class instance extends instance_skel {
 	_reconnectMqtt() {
 		var self = this;
 
-		if (!mqttClient.connected) {
-			mqttClient.reconnect();
+		if (!self.mqttClient.connected) {
+			self.mqttClient.reconnect();
 
-			if (!mqttClient.connected) {
+			if (!self.mqttClient.connected) {
 				self.status(self.STATUS_WARNING, 'Offline')
 			}
 		}
@@ -348,7 +345,7 @@ class instance extends instance_skel {
 		// This is necessary to prevent orphaned subscriptions when a feedback is updated.
 
 		self.mqtt_topic_subscriptions.forEach((obj) => {
-			mqttClient.unsubscribe(obj.topic, (err) => {
+			self.mqttClient.unsubscribe(obj.topic, (err) => {
 				if (!err) {
 					self.debug(`Successfully unsubscribed from topic: ${obj.topic}`)
 					return;
