@@ -2,8 +2,6 @@ var instance_skel = require('../../instance_skel');
 var mqtt = require("mqtt");
 var match = require("mqtt-match");
 var mqttClient;
-var debug;
-var log;
 
 class instance extends instance_skel {
 	constructor(system, id, config) {
@@ -30,16 +28,13 @@ class instance extends instance_skel {
 	init() {
 		var self = this;
 
-		debug = self.debug;
-		log = self.log;
-
 		self._initMqtt();
 		self._initFeedbackDefinitions();
 		self._updateInstanceFeedbacks();
 
 		// Watch for feedback delete so MQTT subscriptions can be updated.
 		self.system.on('feedback_delete', function (page, bank, id) {
-			debug('Feedback delete event received.');
+			self.debug('Feedback delete event received.');
 			self._unsubscribeAll();
 			self._clearInstanceVariables();
 			self._updateInstanceFeedbacks();
@@ -70,7 +65,7 @@ class instance extends instance_skel {
 					}
 				],
 				callback: (feedback) => {
-					debug('Feedback callback called');
+					self.debug('Feedback callback called');
 					self._unsubscribeAll();
 					self._clearInstanceVariables();
 
@@ -135,7 +130,7 @@ class instance extends instance_skel {
 		}
 	}
 
-	actions(system) {
+	actions() {
 		var self = this;
 
 		self.setActions({
@@ -181,20 +176,21 @@ class instance extends instance_skel {
 		var self = this;
 
 		switch (action.action) {
-			case 'publish':
+			case 'publish': {
 				const {retain, topic, qos, payload} = action.options;
 				self._publishMessage(topic, payload, qos, retain);
+			}
 		}
 	}
 
-	_addMqttFeedback(feedback, bank) {
+	_addMqttFeedback(feedback) {
 		var self = this;
 
-		debug("Adding MQTT feedback");
-		debug(feedback);
+		self.debug("Adding MQTT feedback");
+		self.debug(feedback);
 
 		if(feedback.options.subscribeTopic === undefined || feedback.options.subscribeTopic === '') {
-			debug('Skipping empty MQTT feedback topic.');
+			self.debug('Skipping empty MQTT feedback topic.');
 			return;
 		}
 
@@ -204,7 +200,7 @@ class instance extends instance_skel {
 			topic: feedback.options.subscribeTopic,
 			options: feedback.options,
 			callback: (variable, mqttMessage) => {
-				debug(`Setting value for instance variable: ${variable}`);
+				self.debug(`Setting value for instance variable: ${variable}`);
 
 				// TODO extract value from field if object path provided.
 
@@ -238,7 +234,7 @@ class instance extends instance_skel {
 		});
 
 		mqttClient.on('packetreceive', packet => {
-			debug('MQTT', packet)
+			self.debug('MQTT', packet)
 		});
 
 		mqttClient.on('message', function(topic, message, packet) {
@@ -249,7 +245,7 @@ class instance extends instance_skel {
 	_publishMessage(topic, payload, qos, retain) {
 		var self = this;
 
-		debug('Sending MQTT message', [topic, payload]);
+		self.debug('Sending MQTT message', [topic, payload]);
 
 		self._reconnectMqtt();
 
@@ -259,16 +255,16 @@ class instance extends instance_skel {
 	_refreshMqttSubscriptions() {
 		var self = this;
 
-		debug('Refreshing MQTT subscriptions: ', self.mqtt_topic_subscriptions);
+		self.debug('Refreshing MQTT subscriptions: ', self.mqtt_topic_subscriptions);
 
 		self.mqtt_topic_subscriptions.forEach((obj, index) => {
 			mqttClient.subscribe(obj.topic, (err) => {
 				if (!err) {
-					debug(`Successfully subscribed to topic: ${obj.topic}`)
+					self.debug(`Successfully subscribed to topic: ${obj.topic}`)
 					return;
 				}
 
-				debug(`Failed to subscribe to topic: ${obj.topic}. Error: ${err}`)
+				self.debug(`Failed to subscribe to topic: ${obj.topic}. Error: ${err}`)
 			})
 		})
 	}
@@ -288,18 +284,18 @@ class instance extends instance_skel {
 	_handleMqttMessage(topic, message, packet) {
 		var self = this;
 
-		debug('MQTT message received:', {
+		self.debug('MQTT message received:', {
 			topic: topic,
 			message: message.toString()
 		});
 
-		debug(self.mqtt_topic_subscriptions);
+		self.debug(self.mqtt_topic_subscriptions);
 
 		// Match topic to correct subscriber
 		var sub = self._getSubscriptionsByTopic(topic);
 
 		sub.forEach(function(s) {
-			debug('Matching subscription: ', s);
+			self.debug('Matching subscription: ', s);
 			s.callback(s.options.variable, message.toString());
 		});
 	}
@@ -317,8 +313,8 @@ class instance extends instance_skel {
 
 		self.system.emit('feedbacks_for_instance', self.id, function (feedbacks) {
 			feedbacks.forEach((feedback) => {
-				debug('Initializing existing MQTT feedbacks.');
-				debug(feedback);
+				self.debug('Initializing existing MQTT feedbacks.');
+				self.debug(feedback);
 
 				self._unsubscribeAll();
 				self._clearInstanceVariables();
@@ -342,7 +338,7 @@ class instance extends instance_skel {
 			}
 		});
 
-		debug('Refreshing variable definitions:', vars);
+		self.debug('Refreshing variable definitions:', vars);
 		self.setVariableDefinitions(vars)
 	}
 
@@ -351,14 +347,14 @@ class instance extends instance_skel {
 
 		// This is necessary to prevent orphaned subscriptions when a feedback is updated.
 
-		self.mqtt_topic_subscriptions.forEach((obj, index) => {
+		self.mqtt_topic_subscriptions.forEach((obj) => {
 			mqttClient.unsubscribe(obj.topic, (err) => {
 				if (!err) {
-					debug(`Successfully unsubscribed from topic: ${obj.topic}`)
+					self.debug(`Successfully unsubscribed from topic: ${obj.topic}`)
 					return;
 				}
 
-				debug(`Failed to unsubscribe from topic: ${obj.topic}. Error: ${err}`)
+				self.debug(`Failed to unsubscribe from topic: ${obj.topic}. Error: ${err}`)
 			})
 		});
 	}
