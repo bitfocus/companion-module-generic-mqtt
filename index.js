@@ -197,7 +197,7 @@ class instance extends instance_skel {
 		const self = this
 		
 		const subscriptions = self.mqtt_topic_subscriptions.get(topic) || {}
-		if (Object.keys(subscriptions).length !== 0 && !subscriptions[feedbackId]) {
+		if (Object.keys(subscriptions).length !== 0 && subscriptions[feedbackId]) {
 			delete subscriptions[feedbackId]
 			self.mqtt_topic_subscriptions.set(topic, subscriptions)
 
@@ -352,7 +352,13 @@ class instance extends instance_skel {
 		});
 
 		self.mqttClient.on('message', function(topic, message) {
-			self._handleMqttMessage(topic, message.toString())
+			try {
+				if (topic) {
+					self._handleMqttMessage(topic, message ? message.toString() : '')
+				}
+			} catch(e) {
+				self.log('error', `Handle message faaailed: ${e.toString()}`)
+			}
 		})
 	}
 
