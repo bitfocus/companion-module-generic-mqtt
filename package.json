@@ -21,6 +21,7 @@
 	"license": "MIT",
 	"dependencies": {
 		"debounce-fn": "^4.0.0",
-		"mqtt": "^3.0.0"
+		"mqtt": "^3.0.0",
+		"object-path": "^0.11.4"
 	}
 }

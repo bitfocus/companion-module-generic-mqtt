@@ -1,6 +1,7 @@
 var instance_skel = require('../../instance_skel');
 var mqtt = require("mqtt");
 var debounceFn = require('debounce-fn')
+var objectPath = require('object-path')
 
 function ForegroundPicker(color) {
   return {
@@ -94,6 +95,12 @@ class instance extends instance_skel {
 					},
 					{
 						type: 'textinput',
+						label: 'JSON Path (Blank if not json)',
+						id: 'subpath',
+						default: ''
+					},
+					{
+						type: 'textinput',
 						label: 'Variable',
 						id: 'variable',
 						default: ''
@@ -104,9 +111,16 @@ class instance extends instance_skel {
 				},
 				subscribe: (feedback) => {
 					self._subscribeToTopic(feedback.options.subscribeTopic, feedback.id, 'mqtt_variable', {
-						variableName: feedback.options.variable
+						variableName: feedback.options.variable,
+						subpath: feedback.options.subpath
 					})
 					self.debounceUpdateInstanceVariables()
+
+					// Update it if we have a cached value
+					const message = self.mqtt_topic_value_cache.get(feedback.options.subscribeTopic)
+					if (message !== undefined) {
+						self._updateFeedbackVariable(feedback.options.variable, feedback.options.subpath, message)
+					}
 				},
 				unsubscribe: (feedback) => {
 					self._unsubscribeToTopic(feedback.options.subscribeTopic, feedback.id)
@@ -123,6 +137,12 @@ class instance extends instance_skel {
 						type: 'textinput',
 						label: 'Topic',
 						id: 'subscribeTopic',
+						default: ''
+					},
+					{
+						type: 'textinput',
+						label: 'JSON Path (Blank if not json)',
+						id: 'subpath',
 						default: ''
 					},
 					{
@@ -147,15 +167,20 @@ class instance extends instance_skel {
 					}
 				],
 				callback: (feedback) => {
-					const value = self.mqtt_topic_value_cache.get(feedback.options.subscribeTopic)
+					let value = self.mqtt_topic_value_cache.get(feedback.options.subscribeTopic)
 					if (value !== undefined) {
+						if (feedback.options.subpath) {
+							value = objectPath.get(JSON.parse(value), feedback.options.subpath)
+						}
+						
+						const targetValue = feedback.options.value
 						const checks = {
-							eq: value == feedback.options.value,
-							ne: value != feedback.options.value,
-							lt: value < feedback.options.value,
-							lte: value <= feedback.options.value,
-							gt: value > feedback.options.value,
-							gte: value >= feedback.options.value
+							eq: value == targetValue,
+							ne: value != targetValue,
+							lt: value < targetValue,
+							lte: value <= targetValue,
+							gt: value > targetValue,
+							gte: value >= targetValue
 						}
 						if (checks[feedback.options.comparison]) {
 							return getOptColors(feedback)
@@ -203,7 +228,7 @@ class instance extends instance_skel {
 
 			if (Object.keys(subscriptions).length === 0) {
 				self.mqttClient.unsubscribe(topic, (err) => {
-					if (self.mqtt_topic_value_cache.has(topic)) {
+					if (self.mqtt_topic_value_cache.has(topic) && !self.mqtt_topic_subscriptions.has(topic)) {
 						// Ensure cached value is pruned
 						self.mqtt_topic_value_cache.delete(topic)
 					}
@@ -347,9 +372,9 @@ class instance extends instance_skel {
 			self.status(self.STATUS_WARNING, 'Offline')
 		});
 
-		self.mqttClient.on('packetreceive', packet => {
-			self.debug('MQTT', packet)
-		});
+		// self.mqttClient.on('packetreceive', packet => {
+		// 	self.debug('MQTT', packet)
+		// });
 
 		self.mqttClient.on('message', function(topic, message) {
 			try {
@@ -387,13 +412,24 @@ class instance extends instance_skel {
 				if (type === 'mqtt_variable') {
 					const subs = Object.values(subscriptions).filter(t => t.type === type)
 					subs.forEach(s => {
-						self.setVariable(s.variableName, message)
+						self._updateFeedbackVariable(s.variableName, s.subpath, message)
 					})
 				} else {
 					self.checkFeedbacks(type)
 				}
 			})
 		}
+	}
+
+	_updateFeedbackVariable(variableName, subpath, message) {
+		var self = this;
+
+		let msgValue = message
+		if (subpath) {
+			msgValue = objectPath.get(JSON.parse(msgValue), subpath)
+		}
+
+		self.setVariable(variableName, typeof msgValue === 'object' ? JSON.stringify(msgValue) : msgValue)
 	}
 
 	_updateInstanceVariables() {
