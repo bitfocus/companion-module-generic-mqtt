@@ -1,16 +1,14 @@
-var instance_skel = require('../../instance_skel')
-var mqtt = require('mqtt')
-var debounceFn = require('debounce-fn')
-var objectPath = require('object-path')
+const instance_skel = require('../../instance_skel')
+const mqtt = require('mqtt')
+const debounceFn = require('debounce-fn')
+const objectPath = require('object-path')
 
-class instance extends instance_skel {
+class mqtt_instance extends instance_skel {
 	constructor(system, id, config) {
 		super(system, id, config)
 
-		var self = this
-
-		self.mqtt_topic_subscriptions = new Map()
-		self.mqtt_topic_value_cache = new Map()
+		this.mqtt_topic_subscriptions = new Map()
+		this.mqtt_topic_value_cache = new Map()
 
 		this.debounceUpdateInstanceVariables = debounceFn(this._updateInstanceVariables, {
 			wait: 100,
@@ -26,46 +24,38 @@ class instance extends instance_skel {
 	}
 
 	updateConfig(config) {
-		var self = this
+		this.config = config
 
-		self.config = config
-
-		self._initMqtt()
+		this._initMqtt()
 	}
 
 	init() {
-		var self = this
-
-		self.actions()
-		self._initFeedbackDefinitions()
-		self._initMqtt()
+		this.actions()
+		this._initFeedbackDefinitions()
+		this._initMqtt()
 	}
 
 	_resubscribeToTopics() {
-		var self = this
-
 		// Unsubscribe from everything
-		self.mqtt_topic_subscriptions.forEach((topic) => {
-			self.mqttClient.unsubscribe(topic, (err) => {
+		this.mqtt_topic_subscriptions.forEach((topic) => {
+			this.mqttClient.unsubscribe(topic, (err) => {
 				if (!err) {
-					self.debug(`Successfully unsubscribed from topic: ${topic}`)
+					this.debug(`Successfully unsubscribed from topic: ${topic}`)
 					return
 				}
 
-				self.debug(`Failed to unsubscribe from topic: ${topic}. Error: ${err}`)
+				this.debug(`Failed to unsubscribe from topic: ${topic}. Error: ${err}`)
 			})
 		})
-		self.mqtt_topic_subscriptions = new Map()
-		self.mqtt_topic_value_cache = new Map()
+		this.mqtt_topic_subscriptions = new Map()
+		this.mqtt_topic_value_cache = new Map()
 
 		// And then subscribe
-		self.subscribeFeedbacks()
+		this.subscribeFeedbacks()
 	}
 
 	_initFeedbackDefinitions() {
-		var self = this
-
-		self.setFeedbackDefinitions({
+		this.setFeedbackDefinitions({
 			mqtt_variable: {
 				label: 'Update variable with value from MQTT topic',
 				description:
@@ -94,21 +84,21 @@ class instance extends instance_skel {
 					// Nothing to do, as this feeds a variable
 				},
 				subscribe: (feedback) => {
-					self._subscribeToTopic(feedback.options.subscribeTopic, feedback.id, 'mqtt_variable', {
+					this._subscribeToTopic(feedback.options.subscribeTopic, feedback.id, 'mqtt_variable', {
 						variableName: feedback.options.variable,
 						subpath: feedback.options.subpath,
 					})
-					self.debounceUpdateInstanceVariables()
+					this.debounceUpdateInstanceVariables()
 
 					// Update it if we have a cached value
-					const message = self.mqtt_topic_value_cache.get(feedback.options.subscribeTopic)
+					const message = this.mqtt_topic_value_cache.get(feedback.options.subscribeTopic)
 					if (message !== undefined) {
-						self._updateFeedbackVariable(feedback.options.variable, feedback.options.subpath, message)
+						this._updateFeedbackVariable(feedback.options.variable, feedback.options.subpath, message)
 					}
 				},
 				unsubscribe: (feedback) => {
-					self._unsubscribeToTopic(feedback.options.subscribeTopic, feedback.id)
-					self.debounceUpdateInstanceVariables()
+					this._unsubscribeToTopic(feedback.options.subscribeTopic, feedback.id)
+					this.debounceUpdateInstanceVariables()
 				},
 			},
 			mqtt_value: {
@@ -116,8 +106,8 @@ class instance extends instance_skel {
 				label: 'Change colors from MQTT topic value',
 				description: 'If the specified MQTT topic value matches this condition, change color of the bank.',
 				style: {
-					color: self.rgb(0, 0, 0),
-					bgcolor: self.rgb(0, 255, 0),
+					color: this.rgb(0, 0, 0),
+					bgcolor: this.rgb(0, 255, 0),
 				},
 				options: [
 					{
@@ -154,7 +144,7 @@ class instance extends instance_skel {
 					},
 				],
 				callback: (feedback) => {
-					let value = self.mqtt_topic_value_cache.get(feedback.options.subscribeTopic)
+					let value = this.mqtt_topic_value_cache.get(feedback.options.subscribeTopic)
 					if (value !== undefined) {
 						if (feedback.options.subpath) {
 							value = objectPath.get(JSON.parse(value), feedback.options.subpath)
@@ -175,63 +165,57 @@ class instance extends instance_skel {
 					return false
 				},
 				subscribe: (feedback) => {
-					self._subscribeToTopic(feedback.options.subscribeTopic, feedback.id, 'mqtt_value')
+					this._subscribeToTopic(feedback.options.subscribeTopic, feedback.id, 'mqtt_value')
 				},
 				unsubscribe: (feedback) => {
-					self._unsubscribeToTopic(feedback.options.subscribeTopic, feedback.id)
+					this._unsubscribeToTopic(feedback.options.subscribeTopic, feedback.id)
 				},
 			},
 		})
 	}
 
 	_subscribeToTopic(topic, feedbackId, feedbackType, data) {
-		const self = this
-
-		const subscriptions = self.mqtt_topic_subscriptions.get(topic) || {}
+		const subscriptions = this.mqtt_topic_subscriptions.get(topic) || {}
 		if (Object.keys(subscriptions).length === 0) {
-			self.mqttClient.subscribe(topic, (err) => {
+			this.mqttClient.subscribe(topic, (err) => {
 				if (!err) {
-					self.debug(`Successfully subscribed to topic: ${topic}`)
+					this.debug(`Successfully subscribed to topic: ${topic}`)
 					return
 				}
 
-				self.debug(`Failed to subscribe to topic: ${topic}. Error: ${err}`)
+				this.debug(`Failed to subscribe to topic: ${topic}. Error: ${err}`)
 			})
 		}
 		if (!subscriptions[feedbackId]) {
 			subscriptions[feedbackId] = { ...data, type: feedbackType }
-			self.mqtt_topic_subscriptions.set(topic, subscriptions)
+			this.mqtt_topic_subscriptions.set(topic, subscriptions)
 		}
 	}
 	_unsubscribeToTopic(topic, feedbackId) {
-		const self = this
-
-		const subscriptions = self.mqtt_topic_subscriptions.get(topic) || {}
+		const subscriptions = this.mqtt_topic_subscriptions.get(topic) || {}
 		if (Object.keys(subscriptions).length !== 0 && subscriptions[feedbackId]) {
 			delete subscriptions[feedbackId]
-			self.mqtt_topic_subscriptions.set(topic, subscriptions)
+			this.mqtt_topic_subscriptions.set(topic, subscriptions)
 
 			if (Object.keys(subscriptions).length === 0) {
-				self.mqttClient.unsubscribe(topic, (err) => {
-					if (self.mqtt_topic_value_cache.has(topic) && !self.mqtt_topic_subscriptions.has(topic)) {
+				this.mqttClient.unsubscribe(topic, (err) => {
+					if (this.mqtt_topic_value_cache.has(topic) && !this.mqtt_topic_subscriptions.has(topic)) {
 						// Ensure cached value is pruned
-						self.mqtt_topic_value_cache.delete(topic)
+						this.mqtt_topic_value_cache.delete(topic)
 					}
 
 					if (!err) {
-						self.debug(`Successfully unsubscribed from topic: ${topic}`)
+						this.debug(`Successfully unsubscribed from topic: ${topic}`)
 						return
 					}
 
-					self.debug(`Failed to unsubscribe from topic: ${topic}. Error: ${err}`)
+					this.debug(`Failed to unsubscribe from topic: ${topic}. Error: ${err}`)
 				})
 			}
 		}
 	}
 
 	config_fields() {
-		var self = this
-
 		return [
 			{
 				type: 'dropdown',
@@ -251,14 +235,14 @@ class instance extends instance_skel {
 				id: 'broker_ip',
 				width: 4,
 				label: 'Broker IP',
-				regex: self.REGEX_IP,
+				regex: this.REGEX_IP,
 			},
 			{
 				type: 'number',
 				id: 'port',
 				width: 4,
 				label: 'Port',
-				regex: self.REGEX_PORT,
+				regex: this.REGEX_PORT,
 			},
 			{
 				type: 'textinput',
@@ -276,17 +260,13 @@ class instance extends instance_skel {
 	}
 
 	destroy() {
-		var self = this
-
-		if (self.mqttClient && self.mqttClient.connected) {
-			self.mqttClient.disconnect()
+		if (this.mqttClient && this.mqttClient.connected) {
+			this.mqttClient.disconnect()
 		}
 	}
 
 	actions() {
-		var self = this
-
-		self.setActions({
+		this.setActions({
 			publish: {
 				label: 'Publish Message',
 				options: [
@@ -321,108 +301,91 @@ class instance extends instance_skel {
 						width: 4,
 					},
 				],
+				callback: (action) => {
+					const { retain, topic, qos, payload } = action.options
+					this._publishMessage(topic, payload, qos, retain)
+				},
 			},
 		})
 	}
 
-	action(action) {
-		var self = this
-
-		switch (action.action) {
-			case 'publish': {
-				const { retain, topic, qos, payload } = action.options
-				self._publishMessage(topic, payload, qos, retain)
-			}
-		}
-	}
-
 	_initMqtt() {
-		var self = this
-
-		self.mqttClient = mqtt.connect(self.config.protocol + self.config.broker_ip, {
-			username: self.config.user,
-			password: self.config.password,
+		this.mqttClient = mqtt.connect(this.config.protocol + this.config.broker_ip, {
+			username: this.config.user,
+			password: this.config.password,
 		})
-		self._resubscribeToTopics()
+		this._resubscribeToTopics()
 
-		self.mqttClient.on('connect', () => {
-			self.status(self.STATUS_OK)
+		this.mqttClient.on('connect', () => {
+			this.status(this.STATUS_OK)
 		})
 
-		self.mqttClient.on('error', (error) => {
-			self.status(self.STATUS_ERROR, error)
+		this.mqttClient.on('error', (error) => {
+			this.status(this.STATUS_ERROR, error)
 		})
 
-		self.mqttClient.on('offline', () => {
-			self.status(self.STATUS_WARNING, 'Offline')
+		this.mqttClient.on('offline', () => {
+			this.status(this.STATUS_WARNING, 'Offline')
 		})
 
-		// self.mqttClient.on('packetreceive', packet => {
-		// 	self.debug('MQTT', packet)
+		// this.mqttClient.on('packetreceive', packet => {
+		// 	this.debug('MQTT', packet)
 		// });
 
-		self.mqttClient.on('message', function (topic, message) {
+		this.mqttClient.on('message', (topic, message) => {
 			try {
 				if (topic) {
-					self._handleMqttMessage(topic, message ? message.toString() : '')
+					this._handleMqttMessage(topic, message ? message.toString() : '')
 				}
 			} catch (e) {
-				self.log('error', `Handle message faaailed: ${e.toString()}`)
+				this.log('error', `Handle message faaailed: ${e.toString()}`)
 			}
 		})
 	}
 
 	_publishMessage(topic, payload, qos, retain) {
-		var self = this
+		this.debug('Sending MQTT message', [topic, payload])
 
-		self.debug('Sending MQTT message', [topic, payload])
-
-		self.mqttClient.publish(topic, payload, { qos: qos, retain: retain })
+		this.mqttClient.publish(topic, payload, { qos: qos, retain: retain })
 	}
 
 	_handleMqttMessage(topic, message) {
-		var self = this
-
-		self.debug('MQTT message received:', {
+		this.debug('MQTT message received:', {
 			topic: topic,
 			message: message,
 		})
 
-		const subscriptions = self.mqtt_topic_subscriptions.get(topic)
+		const subscriptions = this.mqtt_topic_subscriptions.get(topic)
 		if (subscriptions) {
-			self.mqtt_topic_value_cache.set(topic, message)
+			this.mqtt_topic_value_cache.set(topic, message)
 
 			const feedbacksToUpdate = Array.from(new Set(Object.values(subscriptions).map((s) => s.type)))
 			feedbacksToUpdate.forEach((type) => {
 				if (type === 'mqtt_variable') {
 					const subs = Object.values(subscriptions).filter((t) => t.type === type)
 					subs.forEach((s) => {
-						self._updateFeedbackVariable(s.variableName, s.subpath, message)
+						this._updateFeedbackVariable(s.variableName, s.subpath, message)
 					})
 				} else {
-					self.checkFeedbacks(type)
+					this.checkFeedbacks(type)
 				}
 			})
 		}
 	}
 
 	_updateFeedbackVariable(variableName, subpath, message) {
-		var self = this
-
 		let msgValue = message
 		if (subpath) {
 			msgValue = objectPath.get(JSON.parse(msgValue), subpath)
 		}
 
-		self.setVariable(variableName, typeof msgValue === 'object' ? JSON.stringify(msgValue) : msgValue)
+		this.setVariable(variableName, typeof msgValue === 'object' ? JSON.stringify(msgValue) : msgValue)
 	}
 
 	_updateInstanceVariables() {
-		var self = this
+		const vars = []
 
-		var vars = []
-
-		self.mqtt_topic_subscriptions.forEach((uses, key) => {
+		this.mqtt_topic_subscriptions.forEach((uses, key) => {
 			Object.values(uses).forEach((use) => {
 				if (use.type === 'mqtt_variable') {
 					vars.push({
@@ -433,9 +396,9 @@ class instance extends instance_skel {
 			})
 		})
 
-		self.debug('Refreshing variable definitions:', vars)
-		self.setVariableDefinitions(vars)
+		this.debug('Refreshing variable definitions:', vars)
+		this.setVariableDefinitions(vars)
 	}
 }
 
-exports = module.exports = instance
+exports = module.exports = mqtt_instance
