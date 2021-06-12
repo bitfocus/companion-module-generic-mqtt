@@ -30,7 +30,7 @@ class mqtt_instance extends instance_skel {
 	}
 
 	init() {
-		this.actions()
+		this._initActionDefinitions()
 		this._initFeedbackDefinitions()
 		this._initMqtt()
 	}
@@ -266,7 +266,7 @@ class mqtt_instance extends instance_skel {
 		}
 	}
 
-	actions() {
+	_initActionDefinitions() {
 		this.setActions({
 			publish: {
 				label: 'Publish Message',
