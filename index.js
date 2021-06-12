@@ -3,29 +3,6 @@ var mqtt = require('mqtt')
 var debounceFn = require('debounce-fn')
 var objectPath = require('object-path')
 
-function ForegroundPicker(color) {
-	return {
-		type: 'colorpicker',
-		label: 'Foreground color',
-		id: 'fg',
-		default: color,
-	}
-}
-function BackgroundPicker(color) {
-	return {
-		type: 'colorpicker',
-		label: 'Background color',
-		id: 'bg',
-		default: color,
-	}
-}
-function getOptColors(evt) {
-	return {
-		color: Number(evt.options.fg),
-		bgcolor: Number(evt.options.bg),
-	}
-}
-
 class instance extends instance_skel {
 	constructor(system, id, config) {
 		super(system, id, config)
@@ -39,6 +16,13 @@ class instance extends instance_skel {
 			wait: 100,
 			immediate: false,
 		})
+	}
+
+	static GetUpgradeScripts() {
+		return [
+			instance_skel.CreateConvertToBooleanFeedbackUpgradeScript({ mqtt_value: true }),
+			// future scripts here
+		]
 	}
 
 	updateConfig(config) {
@@ -128,11 +112,14 @@ class instance extends instance_skel {
 				},
 			},
 			mqtt_value: {
+				type: 'boolean',
 				label: 'Change colors from MQTT topic value',
 				description: 'If the specified MQTT topic value matches this condition, change color of the bank.',
+				style: {
+					color: self.rgb(0, 0, 0),
+					bgcolor: self.rgb(0, 255, 0),
+				},
 				options: [
-					BackgroundPicker(self.rgb(0, 255, 0)),
-					ForegroundPicker(self.rgb(0, 0, 0)),
 					{
 						type: 'textinput',
 						label: 'Topic',
@@ -182,12 +169,10 @@ class instance extends instance_skel {
 							gt: value > targetValue,
 							gte: value >= targetValue,
 						}
-						if (checks[feedback.options.comparison]) {
-							return getOptColors(feedback)
-						}
+						return checks[feedback.options.comparison] || false
 					}
 
-					return {}
+					return false
 				},
 				subscribe: (feedback) => {
 					self._subscribeToTopic(feedback.options.subscribeTopic, feedback.id, 'mqtt_value')
