@@ -84,16 +84,17 @@ class mqtt_instance extends instance_skel {
 					// Nothing to do, as this feeds a variable
 				},
 				subscribe: (feedback) => {
-					this._subscribeToTopic(feedback.options.subscribeTopic, feedback.id, 'mqtt_variable', {
+					const subData = {
 						variableName: feedback.options.variable,
 						subpath: feedback.options.subpath,
-					})
+					}
+					this._subscribeToTopic(feedback.options.subscribeTopic, feedback.id, 'mqtt_variable', subData)
 					this.debounceUpdateInstanceVariables()
 
 					// Update it if we have a cached value
 					const message = this.mqtt_topic_value_cache.get(feedback.options.subscribeTopic)
 					if (message !== undefined) {
-						this._updateFeedbackVariable(feedback.options.variable, feedback.options.subpath, message)
+						this._updateFeedbackVariables([[feedback.options.subscribeTopic, subData]])
 					}
 				},
 				unsubscribe: (feedback) => {
@@ -359,27 +360,37 @@ class mqtt_instance extends instance_skel {
 		if (subscriptions) {
 			this.mqtt_topic_value_cache.set(topic, message)
 
-			const feedbacksToUpdate = Array.from(new Set(Object.values(subscriptions).map((s) => s.type)))
-			feedbacksToUpdate.forEach((type) => {
-				if (type === 'mqtt_variable') {
-					const subs = Object.values(subscriptions).filter((t) => t.type === type)
-					subs.forEach((s) => {
-						this._updateFeedbackVariable(s.variableName, s.subpath, message)
-					})
+			const variablesToUpdate = []
+			const feedbackIdsToUpdate = []
+
+			for (const [id, data] of Object.entries(subscriptions)) {
+				if (data.type === 'mqtt_variable') {
+					variablesToUpdate.push([topic, data])
 				} else {
-					this.checkFeedbacks(type)
+					feedbackIdsToUpdate.push(id)
 				}
-			})
+			}
+
+			this.checkFeedbacksById(...feedbackIdsToUpdate)
+			this._updateFeedbackVariables(variablesToUpdate)
 		}
 	}
 
-	_updateFeedbackVariable(variableName, subpath, message) {
-		let msgValue = message
-		if (subpath) {
-			msgValue = objectPath.get(JSON.parse(msgValue), subpath)
+	_updateFeedbackVariables(variables) {
+		const newValues = {}
+
+		for (const [topic, data] of variables) {
+			let msgValue = this.mqtt_topic_value_cache.get(topic)
+			if (msgValue) {
+				if (data.subpath) {
+					msgValue = objectPath.get(JSON.parse(msgValue), data.subpath)
+				}
+
+				newValues[data.variableName] = typeof msgValue === 'object' ? JSON.stringify(msgValue) : msgValue
+			}
 		}
 
-		this.setVariable(variableName, typeof msgValue === 'object' ? JSON.stringify(msgValue) : msgValue)
+		this.setVariables(newValues)
 	}
 
 	_updateInstanceVariables() {
