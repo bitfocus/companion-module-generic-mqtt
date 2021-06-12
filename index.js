@@ -1,72 +1,71 @@
-var instance_skel = require('../../instance_skel');
-var mqtt = require("mqtt");
+var instance_skel = require('../../instance_skel')
+var mqtt = require('mqtt')
 var debounceFn = require('debounce-fn')
 var objectPath = require('object-path')
 
 function ForegroundPicker(color) {
-  return {
-    type: 'colorpicker',
-    label: 'Foreground color',
-    id: 'fg',
-    default: color
-  }
+	return {
+		type: 'colorpicker',
+		label: 'Foreground color',
+		id: 'fg',
+		default: color,
+	}
 }
 function BackgroundPicker(color) {
-  return {
-    type: 'colorpicker',
-    label: 'Background color',
-    id: 'bg',
-    default: color
-  }
+	return {
+		type: 'colorpicker',
+		label: 'Background color',
+		id: 'bg',
+		default: color,
+	}
 }
 function getOptColors(evt) {
-  return {
-    color: Number(evt.options.fg),
-    bgcolor: Number(evt.options.bg)
-  }
+	return {
+		color: Number(evt.options.fg),
+		bgcolor: Number(evt.options.bg),
+	}
 }
 
 class instance extends instance_skel {
-
 	constructor(system, id, config) {
-		super(system, id, config);
+		super(system, id, config)
 
-		var self = this;
+		var self = this
 
 		self.mqtt_topic_subscriptions = new Map()
 		self.mqtt_topic_value_cache = new Map()
 
 		this.debounceUpdateInstanceVariables = debounceFn(this._updateInstanceVariables, {
 			wait: 100,
-			immediate: false
+			immediate: false,
 		})
 	}
 
 	updateConfig(config) {
-		var self = this;
+		var self = this
 
-		self.config = config;
+		self.config = config
 
-		self._initMqtt();
+		self._initMqtt()
 	}
 
 	init() {
-		var self = this;
+		var self = this
 
-		self.actions();
-		self._initFeedbackDefinitions();
-		self._initMqtt();
+		self.actions()
+		self._initFeedbackDefinitions()
+		self._initMqtt()
 	}
 
 	_resubscribeToTopics() {
-		var self = this;
+		var self = this
 
 		// Unsubscribe from everything
 		self.mqtt_topic_subscriptions.forEach((topic) => {
 			self.mqttClient.unsubscribe(topic, (err) => {
 				if (!err) {
 					self.debug(`Successfully unsubscribed from topic: ${topic}`)
-					return;
+					return
 				}
 
 				self.debug(`Failed to unsubscribe from topic: ${topic}. Error: ${err}`)
@@ -80,31 +79,32 @@ class instance extends instance_skel {
 	}
 
 	_initFeedbackDefinitions() {
-		var self = this;
+		var self = this
 
 		self.setFeedbackDefinitions({
 			mqtt_variable: {
 				label: 'Update variable with value from MQTT topic',
-				description: 'Receive messages from the MQTT broker and set the value to a variable. Variables can be used on any button.',
+				description:
+					'Receive messages from the MQTT broker and set the value to a variable. Variables can be used on any button.',
 				options: [
 					{
 						type: 'textinput',
 						label: 'Topic',
 						id: 'subscribeTopic',
-						default: ''
+						default: '',
 					},
 					{
 						type: 'textinput',
 						label: 'JSON Path (Blank if not json)',
 						id: 'subpath',
-						default: ''
+						default: '',
 					},
 					{
 						type: 'textinput',
 						label: 'Variable',
 						id: 'variable',
-						default: ''
-					}
+						default: '',
+					},
 				],
 				callback: () => {
 					// Nothing to do, as this feeds a variable
@@ -112,7 +112,7 @@ class instance extends instance_skel {
 				subscribe: (feedback) => {
 					self._subscribeToTopic(feedback.options.subscribeTopic, feedback.id, 'mqtt_variable', {
 						variableName: feedback.options.variable,
-						subpath: feedback.options.subpath
+						subpath: feedback.options.subpath,
 					})
 					self.debounceUpdateInstanceVariables()
 
@@ -125,7 +125,7 @@ class instance extends instance_skel {
 				unsubscribe: (feedback) => {
 					self._unsubscribeToTopic(feedback.options.subscribeTopic, feedback.id)
 					self.debounceUpdateInstanceVariables()
-				}
+				},
 			},
 			mqtt_value: {
 				label: 'Change colors from MQTT topic value',
@@ -137,19 +137,19 @@ class instance extends instance_skel {
 						type: 'textinput',
 						label: 'Topic',
 						id: 'subscribeTopic',
-						default: ''
+						default: '',
 					},
 					{
 						type: 'textinput',
 						label: 'JSON Path (Blank if not json)',
 						id: 'subpath',
-						default: ''
+						default: '',
 					},
 					{
 						type: 'textinput',
 						label: 'Value',
 						id: 'value',
-						default: ''
+						default: '',
 					},
 					{
 						type: 'dropdown',
@@ -163,8 +163,8 @@ class instance extends instance_skel {
 							{ id: 'lte', label: '<=' },
 							{ id: 'gt', label: '>' },
 							{ id: 'gte', label: '>=' },
-						]
-					}
+						],
+					},
 				],
 				callback: (feedback) => {
 					let value = self.mqtt_topic_value_cache.get(feedback.options.subscribeTopic)
@@ -172,7 +172,7 @@ class instance extends instance_skel {
 						if (feedback.options.subpath) {
 							value = objectPath.get(JSON.parse(value), feedback.options.subpath)
 						}
-						
+
 						const targetValue = feedback.options.value
 						const checks = {
 							eq: value == targetValue,
@@ -180,7 +180,7 @@ class instance extends instance_skel {
 							lt: value < targetValue,
 							lte: value <= targetValue,
 							gt: value > targetValue,
-							gte: value >= targetValue
+							gte: value >= targetValue,
 						}
 						if (checks[feedback.options.comparison]) {
 							return getOptColors(feedback)
@@ -194,9 +194,9 @@ class instance extends instance_skel {
 				},
 				unsubscribe: (feedback) => {
 					self._unsubscribeToTopic(feedback.options.subscribeTopic, feedback.id)
-				}
-			}
-		});
+				},
+			},
+		})
 	}
 
 	_subscribeToTopic(topic, feedbackId, feedbackType, data) {
@@ -207,7 +207,7 @@ class instance extends instance_skel {
 			self.mqttClient.subscribe(topic, (err) => {
 				if (!err) {
 					self.debug(`Successfully subscribed to topic: ${topic}`)
-					return;
+					return
 				}
 
 				self.debug(`Failed to subscribe to topic: ${topic}. Error: ${err}`)
@@ -220,7 +220,7 @@ class instance extends instance_skel {
 	}
 	_unsubscribeToTopic(topic, feedbackId) {
 		const self = this
-		
+
 		const subscriptions = self.mqtt_topic_subscriptions.get(topic) || {}
 		if (Object.keys(subscriptions).length !== 0 && subscriptions[feedbackId]) {
 			delete subscriptions[feedbackId]
@@ -235,9 +235,9 @@ class instance extends instance_skel {
 
 					if (!err) {
 						self.debug(`Successfully unsubscribed from topic: ${topic}`)
-						return;
+						return
 					}
-	
+
 					self.debug(`Failed to unsubscribe from topic: ${topic}. Error: ${err}`)
 				})
 			}
@@ -245,7 +245,7 @@ class instance extends instance_skel {
 	}
 
 	config_fields() {
-		var self = this;
+		var self = this
 
 		return [
 			{
@@ -255,43 +255,43 @@ class instance extends instance_skel {
 				width: 4,
 				default: 1,
 				choices: [
-					{id: 'mqtt://', label: 'mqtt://'},
-					{id: 'mqtts://', label: 'mqtts://'},
-					{id: 'ws://', label: 'ws://'},
-					{id: 'wss://', label: 'wss://'}
-				]
+					{ id: 'mqtt://', label: 'mqtt://' },
+					{ id: 'mqtts://', label: 'mqtts://' },
+					{ id: 'ws://', label: 'ws://' },
+					{ id: 'wss://', label: 'wss://' },
+				],
 			},
 			{
 				type: 'textinput',
 				id: 'broker_ip',
 				width: 4,
 				label: 'Broker IP',
-				regex: self.REGEX_IP
+				regex: self.REGEX_IP,
 			},
 			{
 				type: 'number',
 				id: 'port',
 				width: 4,
 				label: 'Port',
-				regex: self.REGEX_PORT
+				regex: self.REGEX_PORT,
 			},
 			{
 				type: 'textinput',
 				id: 'user',
 				width: 6,
-				label: 'Username'
+				label: 'Username',
 			},
 			{
 				type: 'textinput',
 				id: 'password',
 				width: 6,
-				label: 'Password'
-			}
-		];
+				label: 'Password',
+			},
+		]
 	}
 
 	destroy() {
-		var self = this;
+		var self = this
 
 		if (self.mqttClient && self.mqttClient.connected) {
 			self.mqttClient.disconnect()
@@ -299,10 +299,10 @@ class instance extends instance_skel {
 	}
 
 	actions() {
-		var self = this;
+		var self = this
 
 		self.setActions({
-			'publish': {
+			publish: {
 				label: 'Publish Message',
 				options: [
 					{
@@ -310,14 +310,14 @@ class instance extends instance_skel {
 						label: 'Topic',
 						id: 'topic',
 						default: '',
-						width: 12
+						width: 12,
 					},
 					{
 						type: 'textinput',
 						label: 'Payload',
 						id: 'payload',
 						default: '',
-						width: 12
+						width: 12,
 					},
 					{
 						type: 'number',
@@ -326,92 +326,92 @@ class instance extends instance_skel {
 						default: 0,
 						width: 4,
 						min: 0,
-						max: 2
+						max: 2,
 					},
 					{
 						type: 'checkbox',
 						label: 'Retain?',
 						id: 'retain',
 						default: false,
-						width: 4
-					}
-				]
-			}
+						width: 4,
+					},
+				],
+			},
 		})
 	}
 
 	action(action) {
-		var self = this;
+		var self = this
 
 		switch (action.action) {
 			case 'publish': {
-				const {retain, topic, qos, payload} = action.options;
-				self._publishMessage(topic, payload, qos, retain);
+				const { retain, topic, qos, payload } = action.options
+				self._publishMessage(topic, payload, qos, retain)
 			}
 		}
 	}
 
 	_initMqtt() {
-		var self = this;
+		var self = this
 
 		self.mqttClient = mqtt.connect(self.config.protocol + self.config.broker_ip, {
 			username: self.config.user,
-			password: self.config.password
-		});
+			password: self.config.password,
+		})
 		self._resubscribeToTopics()
 
 		self.mqttClient.on('connect', () => {
 			self.status(self.STATUS_OK)
-		});
+		})
 
-		self.mqttClient.on('error', error => {
+		self.mqttClient.on('error', (error) => {
 			self.status(self.STATUS_ERROR, error)
-		});
+		})
 
 		self.mqttClient.on('offline', () => {
 			self.status(self.STATUS_WARNING, 'Offline')
-		});
+		})
 
 		// self.mqttClient.on('packetreceive', packet => {
 		// 	self.debug('MQTT', packet)
 		// });
 
-		self.mqttClient.on('message', function(topic, message) {
+		self.mqttClient.on('message', function (topic, message) {
 			try {
 				if (topic) {
 					self._handleMqttMessage(topic, message ? message.toString() : '')
 				}
-			} catch(e) {
+			} catch (e) {
 				self.log('error', `Handle message faaailed: ${e.toString()}`)
 			}
 		})
 	}
 
 	_publishMessage(topic, payload, qos, retain) {
-		var self = this;
+		var self = this
 
-		self.debug('Sending MQTT message', [topic, payload]);
+		self.debug('Sending MQTT message', [topic, payload])
 
-		self.mqttClient.publish(topic, payload, {qos: qos, retain: retain})
+		self.mqttClient.publish(topic, payload, { qos: qos, retain: retain })
 	}
 
 	_handleMqttMessage(topic, message) {
-		var self = this;
+		var self = this
 
 		self.debug('MQTT message received:', {
 			topic: topic,
-			message: message
-		});
+			message: message,
+		})
 
 		const subscriptions = self.mqtt_topic_subscriptions.get(topic)
 		if (subscriptions) {
 			self.mqtt_topic_value_cache.set(topic, message)
 
-			const feedbacksToUpdate = Array.from(new Set(Object.values(subscriptions).map(s => s.type)))
-			feedbacksToUpdate.forEach(type => {
+			const feedbacksToUpdate = Array.from(new Set(Object.values(subscriptions).map((s) => s.type)))
+			feedbacksToUpdate.forEach((type) => {
 				if (type === 'mqtt_variable') {
-					const subs = Object.values(subscriptions).filter(t => t.type === type)
-					subs.forEach(s => {
+					const subs = Object.values(subscriptions).filter((t) => t.type === type)
+					subs.forEach((s) => {
 						self._updateFeedbackVariable(s.variableName, s.subpath, message)
 					})
 				} else {
@@ -422,7 +422,7 @@ class instance extends instance_skel {
 	}
 
 	_updateFeedbackVariable(variableName, subpath, message) {
-		var self = this;
+		var self = this
 
 		let msgValue = message
 		if (subpath) {
@@ -433,12 +433,12 @@ class instance extends instance_skel {
 	}
 
 	_updateInstanceVariables() {
-		var self = this;
+		var self = this
 
 		var vars = []
 
 		self.mqtt_topic_subscriptions.forEach((uses, key) => {
-			Object.values(uses).forEach(use => {
+			Object.values(uses).forEach((use) => {
 				if (use.type === 'mqtt_variable') {
 					vars.push({
 						label: `MQTT value from topic: ${key}`,
@@ -448,10 +448,9 @@ class instance extends instance_skel {
 			})
 		})
 
-		self.debug('Refreshing variable definitions:', vars);
+		self.debug('Refreshing variable definitions:', vars)
 		self.setVariableDefinitions(vars)
 	}
-
 }
 
-exports = module.exports = instance;
+exports = module.exports = instance
