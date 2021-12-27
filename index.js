@@ -20,6 +20,13 @@ class mqtt_instance extends instance_skel {
 		return [
 			instance_skel.CreateConvertToBooleanFeedbackUpgradeScript({ mqtt_value: true }),
 			// future scripts here
+			(context, config) => {
+				if (config.clientIdMode === undefined) {
+					config.clientIdMode = 'default'
+					config.clientId = 'bitfocus-companion-mqtt'
+					return true
+				}
+			},
 		]
 	}
 
@@ -257,6 +264,25 @@ class mqtt_instance extends instance_skel {
 				width: 6,
 				label: 'Password',
 			},
+			{
+				type: 'dropdown',
+				id: 'clientIdMode',
+				width: 6,
+				label: 'Default or Custom Client ID',
+				choices: [
+					{ id: 'default', label: 'Default' },
+					{ id: 'custom', label: 'Custom' },
+				],
+				default: 'default',
+			},
+			{
+				type: 'textinput',
+				id: 'clientId',
+				width: 6,
+				label: 'Custom Client ID',
+				default: 'bitfocus-companion-mqtt',
+				isVisible: ({ clientIdMode }) => clientIdMode === 'custom',
+			},
 		]
 	}
 
@@ -313,11 +339,16 @@ class mqtt_instance extends instance_skel {
 	_initMqtt() {
 		const brokerPort = Number.isNaN(Number.parseInt(this.config.port)) ? '' : `:${this.config.port}`
 		const brokerUrl = `${this.config.protocol}${this.config.broker_ip}${brokerPort}`
-
-		this.mqttClient = mqtt.connect(brokerUrl, {
+		const options = {
 			username: this.config.user,
 			password: this.config.password,
-		})
+		}
+
+		if (this.config.clientIdMode === 'custom') {
+			options.clientId = this.config.clientId
+		}
+
+		this.mqttClient = mqtt.connect(brokerUrl, options)
 		this._resubscribeToTopics()
 
 		this.mqttClient.on('connect', () => {
