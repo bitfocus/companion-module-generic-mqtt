@@ -223,7 +223,7 @@ class mqtt_instance extends instance_skel {
 				id: 'protocol',
 				label: 'Protocol',
 				width: 4,
-				default: 1,
+				default: 'mqtt://',
 				choices: [
 					{ id: 'mqtt://', label: 'mqtt://' },
 					{ id: 'mqtts://', label: 'mqtts://' },
@@ -311,7 +311,10 @@ class mqtt_instance extends instance_skel {
 	}
 
 	_initMqtt() {
-		this.mqttClient = mqtt.connect(this.config.protocol + this.config.broker_ip, {
+		const brokerPort = Number.isNaN(Number.parseInt(this.config.port)) ? '' : `:${this.config.port}`
+		const brokerUrl = `${this.config.protocol}${this.config.broker_ip}${brokerPort}`
+
+		this.mqttClient = mqtt.connect(brokerUrl, {
 			username: this.config.user,
 			password: this.config.password,
 		})
