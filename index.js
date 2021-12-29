@@ -237,13 +237,15 @@ class mqtt_instance extends instance_skel {
 				width: 4,
 				label: 'Broker IP',
 				regex: this.REGEX_IP,
+				default: '127.0.0.1',
 			},
 			{
-				type: 'number',
+				type: 'textinput',
 				id: 'port',
 				width: 4,
 				label: 'Port',
 				regex: this.REGEX_PORT,
+				default: '1883',
 			},
 			{
 				type: 'textinput',
@@ -261,9 +263,7 @@ class mqtt_instance extends instance_skel {
 	}
 
 	destroy() {
-		if (this.mqttClient && this.mqttClient.connected) {
-			this.mqttClient.disconnect()
-		}
+		this._destroyMqtt()
 	}
 
 	_initActionDefinitions() {
@@ -310,14 +310,30 @@ class mqtt_instance extends instance_skel {
 		})
 	}
 
+	_destroyMqtt() {
+		if (this.mqttClient !== undefined) {
+			if (this.mqttClient.connected) {
+				this.mqttClient.end()
+			}
+			delete this.mqttClient
+		}
+	}
+
 	_initMqtt() {
+		if (this.config.protocol === undefined) {
+			return
+		}
+
 		const brokerPort = Number.isNaN(Number.parseInt(this.config.port)) ? '' : `:${this.config.port}`
 		const brokerUrl = `${this.config.protocol}${this.config.broker_ip}${brokerPort}`
+
+		this._destroyMqtt()
 
 		this.mqttClient = mqtt.connect(brokerUrl, {
 			username: this.config.user,
 			password: this.config.password,
 		})
+
 		this._resubscribeToTopics()
 
 		this.mqttClient.on('connect', () => {
@@ -325,7 +341,9 @@ class mqtt_instance extends instance_skel {
 		})
 
 		this.mqttClient.on('error', (error) => {
-			this.status(this.STATUS_ERROR, error)
+			this.status(this.STATUS_ERROR, error.toString())
+			this.log('error', error.toString())
+			this.mqttClient.end()
 		})
 
 		this.mqttClient.on('offline', () => {
