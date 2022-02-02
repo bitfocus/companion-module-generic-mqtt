@@ -23,5 +23,13 @@
 		"debounce-fn": "^3.0.0",
 		"mqtt": "^4.2.6",
 		"object-path": "^0.11.5"
+	},
+	"homepage": "https://github.com/bitfocus/companion-module-generic-mqtt#readme",
+	"bugs": {
+		"url": "https://github.com/bitfocus/companion-module-generic-mqtt/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/bitfocus/companion-module-generic-mqtt.git"
 	}
 }
