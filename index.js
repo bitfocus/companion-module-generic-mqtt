@@ -233,10 +233,9 @@ class mqtt_instance extends instance_skel {
 			},
 			{
 				type: 'textinput',
-				id: 'broker_ip',
+				id: 'broker_host',
 				width: 4,
-				label: 'Broker IP',
-				regex: this.REGEX_IP,
+				label: 'Broker (Name/IP)'
 			},
 			{
 				type: 'number',
@@ -312,7 +311,7 @@ class mqtt_instance extends instance_skel {
 
 	_initMqtt() {
 		const brokerPort = Number.isNaN(Number.parseInt(this.config.port)) ? '' : `:${this.config.port}`
-		const brokerUrl = `${this.config.protocol}${this.config.broker_ip}${brokerPort}`
+		const brokerUrl = `${this.config.protocol}${this.config.broker_host}${brokerPort}`
 
 		this.mqttClient = mqtt.connect(brokerUrl, {
 			username: this.config.user,
