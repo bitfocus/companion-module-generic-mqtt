@@ -37,9 +37,7 @@ class GenericMqttInstance extends InstanceBase {
 	}
 
 	async destroy() {
-		if (this.mqttClient && this.mqttClient.connected) {
-			this.mqttClient.disconnect()
-		}
+		this._destroyMqtt()
 	}
 
 	_resubscribeToTopics() {
@@ -273,11 +271,17 @@ class GenericMqttInstance extends InstanceBase {
 		})
 	}
 
-	_initMqtt() {
-		if (this.mqttClient && this.mqttClient.connected) {
-			this.mqttClient.disconnect()
-			this.mqttClient = undefined
+	_destroyMqtt() {
+		if (this.mqttClient !== undefined) {
+			if (this.mqttClient.connected) {
+				this.mqttClient.end()
+			}
+			delete this.mqttClient
 		}
+	}
+
+	_initMqtt() {
+		this._destroyMqtt()
 
 		try {
 			const brokerPort = isNaN(parseInt(this.config.port)) ? '' : `:${this.config.port}`
@@ -297,6 +301,12 @@ class GenericMqttInstance extends InstanceBase {
 
 			this.mqttClient.on('error', (error) => {
 				this.updateStatus(InstanceStatus.UnknownError, error.message || error.toString())
+
+				this.log('error', error.toString())
+
+				setTimeout(() => {
+					this._initMqtt()
+				}, 1000)
 			})
 
 			this.mqttClient.on('offline', () => {
