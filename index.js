@@ -43,14 +43,18 @@ class GenericMqttInstance extends InstanceBase {
 	_resubscribeToTopics() {
 		// Unsubscribe from everything
 		for (const topic of this.mqtt_topic_subscriptions.values()) {
-			this.mqttClient.unsubscribe(topic, (err) => {
-				if (!err) {
-					this.log('debug', `Successfully unsubscribed from topic: ${topic}`)
-					return
-				}
+			try {
+				this.mqttClient.unsubscribe(topic, (err) => {
+					if (!err) {
+						this.log('debug', `Successfully unsubscribed from topic: ${topic}`)
+						return
+					}
 
-				this.log('debug', `Failed to unsubscribe from topic: ${topic}. Error: ${err}`)
-			})
+					this.log('debug', `Failed to unsubscribe from topic: ${topic}. Error: ${err}`)
+				})
+			} catch (e) {
+				// Ignore
+			}
 		}
 
 		this.mqtt_topic_subscriptions = new Map()
@@ -207,19 +211,23 @@ class GenericMqttInstance extends InstanceBase {
 			this.mqtt_topic_subscriptions.set(topic, subscriptions)
 
 			if (Object.keys(subscriptions).length === 0) {
-				this.mqttClient.unsubscribe(topic, (err) => {
-					if (this.mqtt_topic_value_cache.has(topic) && !this.mqtt_topic_subscriptions.has(topic)) {
-						// Ensure cached value is pruned
-						this.mqtt_topic_value_cache.delete(topic)
-					}
+				try {
+					this.mqttClient.unsubscribe(topic, (err) => {
+						if (this.mqtt_topic_value_cache.has(topic) && !this.mqtt_topic_subscriptions.has(topic)) {
+							// Ensure cached value is pruned
+							this.mqtt_topic_value_cache.delete(topic)
+						}
 
-					if (!err) {
-						this.log('debug', `Successfully unsubscribed from topic: ${topic}`)
-						return
-					}
+						if (!err) {
+							this.log('debug', `Successfully unsubscribed from topic: ${topic}`)
+							return
+						}
 
-					this.log('debug', `Failed to unsubscribe from topic: ${topic}. Error: ${err}`)
-				})
+						this.log('debug', `Failed to unsubscribe from topic: ${topic}. Error: ${err}`)
+					})
+				} catch (e) {
+					// Ignore
+				}
 			}
 		}
 	}
