@@ -4,4 +4,4 @@ MQTT is mostly found in use on custom implementations. If you use this module to
 
 **Available actions**
 
-* Publish
+- Publish

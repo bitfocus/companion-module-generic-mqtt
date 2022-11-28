@@ -1,9 +1,11 @@
-const instance_skel = require('../../instance_skel')
-const mqtt = require('mqtt')
-const debounceFn = require('debounce-fn')
-const objectPath = require('object-path')
+import { combineRgb, InstanceBase, InstanceStatus, runEntrypoint } from '@companion-module/base'
+import { configFields } from './config.js'
+import { upgradeScripts } from './upgrade.js'
+import mqtt from 'mqtt'
+import debounceFn from 'debounce-fn'
+import objectPath from 'object-path'
 
-class mqtt_instance extends instance_skel {
+class GenericMqttInstance extends InstanceBase {
 	constructor(system, id, config) {
 		super(system, id, config)
 
@@ -16,37 +18,43 @@ class mqtt_instance extends instance_skel {
 		})
 	}
 
-	static GetUpgradeScripts() {
-		return [
-			instance_skel.CreateConvertToBooleanFeedbackUpgradeScript({ mqtt_value: true }),
-			// future scripts here
-		]
-	}
-
-	updateConfig(config) {
+	configUpdated(config) {
 		this.config = config
 
 		this._initMqtt()
 	}
 
-	init() {
+	async init(config) {
+		this.config = config
+
 		this._initActionDefinitions()
 		this._initFeedbackDefinitions()
 		this._initMqtt()
 	}
 
+	getConfigFields() {
+		return configFields
+	}
+
+	async destroy() {
+		if (this.mqttClient && this.mqttClient.connected) {
+			this.mqttClient.disconnect()
+		}
+	}
+
 	_resubscribeToTopics() {
 		// Unsubscribe from everything
-		this.mqtt_topic_subscriptions.forEach((topic) => {
+		for (const topic of this.mqtt_topic_subscriptions.values()) {
 			this.mqttClient.unsubscribe(topic, (err) => {
 				if (!err) {
-					this.debug(`Successfully unsubscribed from topic: ${topic}`)
+					this.log('debug', `Successfully unsubscribed from topic: ${topic}`)
 					return
 				}
 
-				this.debug(`Failed to unsubscribe from topic: ${topic}. Error: ${err}`)
+				this.log('debug', `Failed to unsubscribe from topic: ${topic}. Error: ${err}`)
 			})
-		})
+		}
+
 		this.mqtt_topic_subscriptions = new Map()
 		this.mqtt_topic_value_cache = new Map()
 
@@ -57,7 +65,8 @@ class mqtt_instance extends instance_skel {
 	_initFeedbackDefinitions() {
 		this.setFeedbackDefinitions({
 			mqtt_variable: {
-				label: 'Update variable with value from MQTT topic',
+				type: 'advanced',
+				name: 'Update variable with value from MQTT topic',
 				description:
 					'Receive messages from the MQTT broker and set the value to a variable. Variables can be used on any button.',
 				options: [
@@ -104,11 +113,11 @@ class mqtt_instance extends instance_skel {
 			},
 			mqtt_value: {
 				type: 'boolean',
-				label: 'Change colors from MQTT topic value',
-				description: 'If the specified MQTT topic value matches this condition, change color of the bank.',
-				style: {
-					color: this.rgb(0, 0, 0),
-					bgcolor: this.rgb(0, 255, 0),
+				name: 'Change style from MQTT topic value',
+				description: 'If the specified MQTT topic value matches this condition, change style of the bank.',
+				defaultStyle: {
+					color: combineRgb(0, 0, 0),
+					bgcolor: combineRgb(0, 255, 0),
 				},
 				options: [
 					{
@@ -180,13 +189,14 @@ class mqtt_instance extends instance_skel {
 		if (Object.keys(subscriptions).length === 0) {
 			this.mqttClient.subscribe(topic, (err) => {
 				if (!err) {
-					this.debug(`Successfully subscribed to topic: ${topic}`)
+					this.log('debug', `Successfully subscribed to topic: ${topic}`)
 					return
 				}
 
-				this.debug(`Failed to subscribe to topic: ${topic}. Error: ${err}`)
+				this.log('debug', `Failed to subscribe to topic: ${topic}. Error: ${err}`)
 			})
 		}
+
 		if (!subscriptions[feedbackId]) {
 			subscriptions[feedbackId] = { ...data, type: feedbackType }
 			this.mqtt_topic_subscriptions.set(topic, subscriptions)
@@ -206,70 +216,20 @@ class mqtt_instance extends instance_skel {
 					}
 
 					if (!err) {
-						this.debug(`Successfully unsubscribed from topic: ${topic}`)
+						this.log('debug', `Successfully unsubscribed from topic: ${topic}`)
 						return
 					}
 
-					this.debug(`Failed to unsubscribe from topic: ${topic}. Error: ${err}`)
+					this.log('debug', `Failed to unsubscribe from topic: ${topic}. Error: ${err}`)
 				})
 			}
 		}
 	}
 
-	config_fields() {
-		return [
-			{
-				type: 'dropdown',
-				id: 'protocol',
-				label: 'Protocol',
-				width: 4,
-				default: 'mqtt://',
-				choices: [
-					{ id: 'mqtt://', label: 'mqtt://' },
-					{ id: 'mqtts://', label: 'mqtts://' },
-					{ id: 'ws://', label: 'ws://' },
-					{ id: 'wss://', label: 'wss://' },
-				],
-			},
-			{
-				type: 'textinput',
-				id: 'broker_ip',
-				width: 4,
-				label: 'Broker IP',
-				regex: this.REGEX_IP,
-			},
-			{
-				type: 'number',
-				id: 'port',
-				width: 4,
-				label: 'Port',
-				regex: this.REGEX_PORT,
-			},
-			{
-				type: 'textinput',
-				id: 'user',
-				width: 6,
-				label: 'Username',
-			},
-			{
-				type: 'textinput',
-				id: 'password',
-				width: 6,
-				label: 'Password',
-			},
-		]
-	}
-
-	destroy() {
-		if (this.mqttClient && this.mqttClient.connected) {
-			this.mqttClient.disconnect()
-		}
-	}
-
 	_initActionDefinitions() {
-		this.setActions({
+		this.setActionDefinitions({
 			publish: {
-				label: 'Publish Message',
+				name: 'Publish Message',
 				options: [
 					{
 						type: 'textinput',
@@ -304,60 +264,68 @@ class mqtt_instance extends instance_skel {
 				],
 				callback: (action) => {
 					const { retain, topic, qos, payload } = action.options
-					this._publishMessage(topic, payload, qos, retain)
+
+					this.log('debug', `Sending MQTT message ${topic}: ${payload}`)
+
+					this.mqttClient.publish(topic, payload, { qos: qos, retain: retain })
 				},
 			},
 		})
 	}
 
 	_initMqtt() {
-		const brokerPort = Number.isNaN(Number.parseInt(this.config.port)) ? '' : `:${this.config.port}`
-		const brokerUrl = `${this.config.protocol}${this.config.broker_ip}${brokerPort}`
+		if (this.mqttClient && this.mqttClient.connected) {
+			this.mqttClient.disconnect()
+			this.mqttClient = undefined
+		}
 
-		this.mqttClient = mqtt.connect(brokerUrl, {
-			username: this.config.user,
-			password: this.config.password,
-		})
-		this._resubscribeToTopics()
+		try {
+			const brokerPort = isNaN(parseInt(this.config.port)) ? '' : `:${this.config.port}`
+			const brokerUrl = `${this.config.protocol}${this.config.broker_ip}${brokerPort}`
 
-		this.mqttClient.on('connect', () => {
-			this.status(this.STATUS_OK)
-		})
+			this.updateStatus(InstanceStatus.Connecting)
 
-		this.mqttClient.on('error', (error) => {
-			this.status(this.STATUS_ERROR, error)
-		})
+			this.mqttClient = mqtt.connect(brokerUrl, {
+				username: this.config.user,
+				password: this.config.password,
+			})
+			this._resubscribeToTopics()
 
-		this.mqttClient.on('offline', () => {
-			this.status(this.STATUS_WARNING, 'Offline')
-		})
+			this.mqttClient.on('connect', () => {
+				this.updateStatus(InstanceStatus.Ok)
+			})
 
-		// this.mqttClient.on('packetreceive', packet => {
-		// 	this.debug('MQTT', packet)
-		// });
+			this.mqttClient.on('error', (error) => {
+				this.updateStatus(InstanceStatus.UnknownError, error.message || error.toString())
+			})
 
-		this.mqttClient.on('message', (topic, message) => {
-			try {
-				if (topic) {
-					this._handleMqttMessage(topic, message ? message.toString() : '')
+			this.mqttClient.on('offline', () => {
+				this.updateStatus(InstanceStatus.Disconnected)
+			})
+
+			// this.mqttClient.on('packetreceive', packet => {
+			// 	this.debug('MQTT', packet)
+			// });
+
+			this.mqttClient.on('message', (topic, message) => {
+				try {
+					if (topic) {
+						this._handleMqttMessage(topic, message ? message.toString() : '')
+					}
+				} catch (e) {
+					this.log('error', `Handle message faaailed: ${e.toString()}`)
 				}
-			} catch (e) {
-				this.log('error', `Handle message faaailed: ${e.toString()}`)
-			}
-		})
-	}
-
-	_publishMessage(topic, payload, qos, retain) {
-		this.debug('Sending MQTT message', [topic, payload])
-
-		this.mqttClient.publish(topic, payload, { qos: qos, retain: retain })
+			})
+		} catch (e) {
+			this.updateStatus(InstanceStatus.UnknownError, e.message || e.toString())
+		}
 	}
 
 	_handleMqttMessage(topic, message) {
-		this.debug('MQTT message received:', {
-			topic: topic,
-			message: message,
-		})
+		// this.log('debug', 'MQTT message received:', {
+		// 	topic: topic,
+		// 	message: message,
+		// })
 
 		const subscriptions = this.mqtt_topic_subscriptions.get(topic)
 		if (subscriptions) {
@@ -393,26 +361,26 @@ class mqtt_instance extends instance_skel {
 			}
 		}
 
-		this.setVariables(newValues)
+		this.setVariableValues(newValues)
 	}
 
 	_updateInstanceVariables() {
 		const vars = []
 
-		this.mqtt_topic_subscriptions.forEach((uses, key) => {
+		for (const [key, uses] of this.mqtt_topic_subscriptions.entries()) {
 			Object.values(uses).forEach((use) => {
 				if (use.type === 'mqtt_variable') {
 					vars.push({
-						label: `MQTT value from topic: ${key}`,
-						name: use.variableName,
+						name: `MQTT value from topic: ${key}`,
+						variableId: use.variableName,
 					})
 				}
 			})
-		})
+		}
 
-		this.debug('Refreshing variable definitions:', vars)
+		this.log('debug', 'Refreshing variable definitions:', vars)
 		this.setVariableDefinitions(vars)
 	}
 }
 
-exports = module.exports = mqtt_instance
+runEntrypoint(GenericMqttInstance, upgradeScripts)
