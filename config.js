@@ -39,4 +39,11 @@ export const configFields = [
 		width: 6,
 		label: 'Password',
 	},
+	{
+		type: 'textinput',
+		id: 'clientId',
+		width: 6,
+		label: 'MQTT Client ID',
+		default: 'bitfocus-companion-mqtt',
+	},
 ]

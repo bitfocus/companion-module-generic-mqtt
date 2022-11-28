@@ -297,10 +297,16 @@ class GenericMqttInstance extends InstanceBase {
 
 			this.updateStatus(InstanceStatus.Connecting)
 
-			this.mqttClient = mqtt.connect(brokerUrl, {
+			const options = {
 				username: this.config.user,
 				password: this.config.password,
-			})
+			}
+
+			if (this.config.clientId) {
+				options.clientId = this.config.clientId
+			}
+
+			this.mqttClient = mqtt.connect(brokerUrl, options)
 			this._resubscribeToTopics()
 
 			this.mqttClient.on('connect', () => {
