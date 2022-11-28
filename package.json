@@ -9,9 +9,9 @@
 	"license": "MIT",
 	"dependencies": {
 		"@companion-module/base": "~0.6.1",
-		"debounce-fn": "^3.0.0",
-		"mqtt": "^4.2.6",
-		"object-path": "^0.11.5"
+		"debounce-fn": "^5.1.2",
+		"mqtt": "^4.3.7",
+		"object-path": "^0.11.8"
 	},
 	"repository": {
 		"type": "git",
