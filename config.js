@@ -1,5 +1,3 @@
-import { Regex } from '@companion-module/base'
-
 export const configFields = [
 	{
 		type: 'dropdown',
@@ -18,8 +16,7 @@ export const configFields = [
 		type: 'textinput',
 		id: 'broker_ip',
 		width: 4,
-		label: 'Broker IP',
-		regex: Regex.IP,
+		label: 'Broker (Hostname/IP)',
 	},
 	{
 		type: 'number',
