@@ -243,6 +243,7 @@ class GenericMqttInstance extends InstanceBase {
 						id: 'topic',
 						default: '',
 						width: 12,
+						useVariables: true,
 					},
 					{
 						type: 'textinput',
@@ -250,6 +251,7 @@ class GenericMqttInstance extends InstanceBase {
 						id: 'payload',
 						default: '',
 						width: 12,
+						useVariables: true,
 					},
 					{
 						type: 'number',
@@ -268,8 +270,13 @@ class GenericMqttInstance extends InstanceBase {
 						width: 4,
 					},
 				],
-				callback: (action) => {
-					const { retain, topic, qos, payload } = action.options
+				callback: async (action) => {
+					let opt = action.options;
+
+					let topic = await this.parseVariablesInString(opt.topic);
+					let payload = await this.parseVariablesInString(opt.payload);
+					let qos = opt.qos;
+					let retain = opt.retain;
 
 					this.log('debug', `Sending MQTT message ${topic}: ${payload}`)
 

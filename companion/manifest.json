@@ -3,7 +3,7 @@
 	"name": "generic-mqtt",
 	"shortname": "mqtt",
 	"description": "MQTT module for Companion app",
-	"version": "0.0.0",
+	"version": "2.0.2",
 	"license": "MIT",
 	"repository": "git+https://github.com/bitfocus/companion-module-generic-mqtt.git",
 	"bugs": "https://github.com/bitfocus/companion-module-generic-mqtt/issues",
