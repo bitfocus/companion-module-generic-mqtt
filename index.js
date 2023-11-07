@@ -77,6 +77,7 @@ class GenericMqttInstance extends InstanceBase {
 						label: 'Topic',
 						id: 'subscribeTopic',
 						default: '',
+						useVariables: true
 					},
 					{
 						type: 'textinput',
@@ -94,22 +95,25 @@ class GenericMqttInstance extends InstanceBase {
 				callback: () => {
 					// Nothing to do, as this feeds a variable
 				},
-				subscribe: (feedback) => {
+				subscribe: async (feedback) => {
 					const subData = {
 						variableName: feedback.options.variable,
 						subpath: feedback.options.subpath,
 					}
-					this._subscribeToTopic(feedback.options.subscribeTopic, feedback.id, 'mqtt_variable', subData)
+
+					let subscribeTopic = await this.parseVariablesInString(feedback.options.subscribeTopic);
+					this._subscribeToTopic(subscribeTopic, feedback.id, 'mqtt_variable', subData)
 					this.debounceUpdateInstanceVariables()
 
 					// Update it if we have a cached value
-					const message = this.mqtt_topic_value_cache.get(feedback.options.subscribeTopic)
+					const message = this.mqtt_topic_value_cache.get(subscribeTopic)
 					if (message !== undefined) {
-						this._updateFeedbackVariables([[feedback.options.subscribeTopic, subData]])
+						this._updateFeedbackVariables([[subscribeTopic, subData]])
 					}
 				},
-				unsubscribe: (feedback) => {
-					this._unsubscribeToTopic(feedback.options.subscribeTopic, feedback.id)
+				unsubscribe: async (feedback) => {
+					let subscribeTopic = await this.parseVariablesInString(feedback.options.subscribeTopic);
+					this._unsubscribeToTopic(subscribeTopic, feedback.id)
 					this.debounceUpdateInstanceVariables()
 				},
 			},
@@ -127,6 +131,7 @@ class GenericMqttInstance extends InstanceBase {
 						label: 'Topic',
 						id: 'subscribeTopic',
 						default: '',
+						useVariables: true
 					},
 					{
 						type: 'textinput',
@@ -139,6 +144,7 @@ class GenericMqttInstance extends InstanceBase {
 						label: 'Value',
 						id: 'value',
 						default: '',
+						useVariables: true
 					},
 					{
 						type: 'dropdown',
@@ -155,14 +161,15 @@ class GenericMqttInstance extends InstanceBase {
 						],
 					},
 				],
-				callback: (feedback) => {
-					let value = this.mqtt_topic_value_cache.get(feedback.options.subscribeTopic)
+				callback: async (feedback) => {
+					let subscribeTopic = await this.parseVariablesInString(feedback.options.subscribeTopic);
+					let value = this.mqtt_topic_value_cache.get(subscribeTopic)
 					if (value !== undefined) {
 						if (feedback.options.subpath) {
 							value = objectPath.get(JSON.parse(value), feedback.options.subpath)
 						}
 
-						const targetValue = feedback.options.value
+						const targetValue = await this.parseVariablesInString(feedback.options.value);
 						const checks = {
 							eq: value == targetValue,
 							ne: value != targetValue,
@@ -176,11 +183,13 @@ class GenericMqttInstance extends InstanceBase {
 
 					return false
 				},
-				subscribe: (feedback) => {
-					this._subscribeToTopic(feedback.options.subscribeTopic, feedback.id, 'mqtt_value')
+				subscribe: async (feedback) => {
+					let subscribeTopic = await this.parseVariablesInString(feedback.options.subscribeTopic);
+					this._subscribeToTopic(subscribeTopic, feedback.id, 'mqtt_value')
 				},
-				unsubscribe: (feedback) => {
-					this._unsubscribeToTopic(feedback.options.subscribeTopic, feedback.id)
+				unsubscribe: async (feedback) => {
+					let subscribeTopic = await this.parseVariablesInString(feedback.options.subscribeTopic);
+					this._unsubscribeToTopic(subscribeTopic, feedback.id)
 				},
 			},
 		})
