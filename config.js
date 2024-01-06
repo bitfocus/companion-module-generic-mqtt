@@ -46,4 +46,11 @@ export const configFields = [
 		label: 'MQTT Client ID',
 		default: 'bitfocus-companion-mqtt',
 	},
+	{
+		type: 'checkbox',
+		id: 'restartOnError',
+		width: 6,
+		label: 'Restart module on connection error',
+		default: true,
+	}
 ]

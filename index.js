@@ -18,18 +18,16 @@ class GenericMqttInstance extends InstanceBase {
 		})
 	}
 
-	configUpdated(config) {
-		this.config = config
-
-		this._initMqtt()
-	}
-
-	async init(config) {
+	async configUpdated(config) {
 		this.config = config
 
 		this._initActionDefinitions()
 		this._initFeedbackDefinitions()
 		this._initMqtt()
+	}
+
+	async init(config) {
+		this.configUpdated(config);
 	}
 
 	getConfigFields() {
@@ -308,54 +306,58 @@ class GenericMqttInstance extends InstanceBase {
 		this._destroyMqtt()
 
 		try {
-			const brokerPort = isNaN(parseInt(this.config.port)) ? '' : `:${this.config.port}`
-			const brokerUrl = `${this.config.protocol}${this.config.broker_ip}${brokerPort}`
+			if (this.config.broker_ip) {
+				const brokerPort = isNaN(parseInt(this.config.port)) ? '' : `:${this.config.port}`
+				const brokerUrl = `${this.config.protocol}${this.config.broker_ip}${brokerPort}`
 
-			this.updateStatus(InstanceStatus.Connecting)
+				this.updateStatus(InstanceStatus.Connecting)
 
-			const options = {
-				username: this.config.user,
-				password: this.config.password,
-			}
-
-			if (this.config.clientId) {
-				options.clientId = this.config.clientId
-			}
-
-			this.mqttClient = mqtt.connect(brokerUrl, options)
-			this._resubscribeToTopics()
-
-			this.mqttClient.on('connect', () => {
-				this.updateStatus(InstanceStatus.Ok)
-			})
-
-			this.mqttClient.on('error', (error) => {
-				this.updateStatus(InstanceStatus.UnknownError, error.message || error.toString())
-
-				this.log('error', error.toString())
-
-				setTimeout(() => {
-					this._initMqtt()
-				}, 1000)
-			})
-
-			this.mqttClient.on('offline', () => {
-				this.updateStatus(InstanceStatus.Disconnected)
-			})
-
-			// this.mqttClient.on('packetreceive', packet => {
-			// 	this.debug('MQTT', packet)
-			// });
-
-			this.mqttClient.on('message', (topic, message) => {
-				try {
-					if (topic) {
-						this._handleMqttMessage(topic, message ? message.toString() : '')
-					}
-				} catch (e) {
-					this.log('error', `Handle message faaailed: ${e.toString()}`)
+				const options = {
+					username: this.config.user,
+					password: this.config.password,
 				}
-			})
+
+				if (this.config.clientId) {
+					options.clientId = this.config.clientId
+				}
+
+				this.mqttClient = mqtt.connect(brokerUrl, options)
+				this._resubscribeToTopics()
+
+				this.mqttClient.on('connect', () => {
+					this.updateStatus(InstanceStatus.Ok)
+				})
+
+				this.mqttClient.on('error', (error) => {
+					this.updateStatus(InstanceStatus.UnknownError, error.message || error.toString())
+
+					this.log('error', error.toString())
+
+					if (this.config.restartOnError) {
+						setTimeout(() => {
+							this._initMqtt()
+						}, 1000)
+					}
+				})
+
+				this.mqttClient.on('offline', () => {
+					this.updateStatus(InstanceStatus.Disconnected)
+				})
+
+				// this.mqttClient.on('packetreceive', packet => {
+				// 	this.debug('MQTT', packet)
+				// });
+
+				this.mqttClient.on('message', (topic, message) => {
+					try {
+						if (topic) {
+							this._handleMqttMessage(topic, message ? message.toString() : '')
+						}
+					} catch (e) {
+						this.log('error', `Handle message faaailed: ${e.toString()}`)
+					}
+				})
+			}
 		} catch (e) {
 			this.updateStatus(InstanceStatus.UnknownError, e.message || e.toString())
 		}
