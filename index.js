@@ -14,7 +14,7 @@ class GenericMqttInstance extends InstanceBase {
 
 		this.debounceUpdateInstanceVariables = debounceFn(this._updateInstanceVariables, {
 			wait: 100,
-			immediate: false,
+			before: false,
 		})
 	}
 
@@ -319,10 +319,11 @@ class GenericMqttInstance extends InstanceBase {
 				}
 
 				this.mqttClient = mqtt.connect(brokerUrl, options)
-				this._resubscribeToTopics()
 
 				this.mqttClient.on('connect', () => {
 					this.updateStatus(InstanceStatus.Ok)
+
+					this._resubscribeToTopics()
 				})
 
 				this.mqttClient.on('error', (error) => {
@@ -361,10 +362,13 @@ class GenericMqttInstance extends InstanceBase {
 	}
 
 	_handleMqttMessage(topic, message) {
-		// this.log('debug', 'MQTT message received:', {
-		// 	topic: topic,
-		// 	message: message,
-		// })
+		// this.log(
+		// 	'debug',
+		// 	`MQTT message received: ${JSON.stringify({
+		// 		topic: topic,
+		// 		message: message,
+		// 	})}`
+		// )
 
 		const subscriptions = this.mqtt_topic_subscriptions.get(topic)
 		if (subscriptions) {
@@ -386,6 +390,20 @@ class GenericMqttInstance extends InstanceBase {
 		}
 	}
 
+	_updateAllVariables() {
+		const variablesToUpdate = []
+
+		for (const [topic, subscriptions] of this.mqtt_topic_subscriptions.entries()) {
+			for (const data of Object.values(subscriptions)) {
+				if (data.type === 'mqtt_variable') {
+					variablesToUpdate.push([topic, data])
+				}
+			}
+		}
+
+		this._updateFeedbackVariables(variablesToUpdate)
+	}
+
 	_updateFeedbackVariables(variables) {
 		const newValues = {}
 
@@ -399,6 +417,8 @@ class GenericMqttInstance extends InstanceBase {
 				newValues[data.variableName] = typeof msgValue === 'object' ? JSON.stringify(msgValue) : msgValue
 			}
 		}
+
+		// this.log('debug', `Updating variable values: ${JSON.stringify(newValues)}`)
 
 		this.setVariableValues(newValues)
 	}
@@ -417,8 +437,10 @@ class GenericMqttInstance extends InstanceBase {
 			})
 		}
 
-		this.log('debug', 'Refreshing variable definitions:', vars)
+		this.log('debug', `Refreshing variable definitions: ${JSON.stringify(vars)}`)
 		this.setVariableDefinitions(vars)
+
+		this._updateAllVariables()
 	}
 }
 
