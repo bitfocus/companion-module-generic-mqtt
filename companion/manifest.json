@@ -1,9 +1,9 @@
 {
 	"id": "generic-mqtt",
 	"name": "generic-mqtt",
-	"shortname": "mqtt",
-	"description": "MQTT module for Companion app",
-	"version": "2.0.2",
+	"shortname": "MQTT",
+	"description": "Generic MQTT client for Bitfocus Companion",
+	"version": "2.1.0",
 	"license": "MIT",
 	"repository": "git+https://github.com/bitfocus/companion-module-generic-mqtt.git",
 	"bugs": "https://github.com/bitfocus/companion-module-generic-mqtt/issues",
@@ -19,12 +19,12 @@
 	],
 	"legacyIds": ["mqtt"],
 	"runtime": {
-		"type": "node18",
+		"type": "node22",
 		"api": "nodejs-ipc",
-		"apiVersion": "0.0.0",
+		"apiVersion": "1.13.0",
 		"entrypoint": "../index.js"
 	},
 	"manufacturer": "Generic",
-	"products": ["MQTT"],
-	"keywords": ["Protocol", "Generic"]
+	"products": ["MQTT Broker"],
+	"keywords": ["MQTT", "IoT", "Message Queue", "Telemetry", "Protocol"]
 }
