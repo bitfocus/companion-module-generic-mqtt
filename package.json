@@ -18,6 +18,6 @@
 		"url": "git+https://github.com/bitfocus/companion-module-generic-mqtt.git"
 	},
 	"devDependencies": {
-		"@companion-module/tools": "^1.4.2"
+		"@companion-module/tools": "^1.5.2"
 	}
 }
