@@ -9,6 +9,8 @@ class GenericMqttInstance extends InstanceBase {
 	constructor(internal) {
 		super(internal)
 
+		this.isRestarting = false
+
 		this.mqtt_topic_subscriptions = new Map()
 		this.mqtt_topic_value_cache = new Map()
 
@@ -292,9 +294,7 @@ class GenericMqttInstance extends InstanceBase {
 
 	_destroyMqtt() {
 		if (this.mqttClient !== undefined) {
-			if (this.mqttClient.connected) {
-				this.mqttClient.end()
-			}
+			this.mqttClient.end()
 			delete this.mqttClient
 		}
 	}
@@ -331,10 +331,15 @@ class GenericMqttInstance extends InstanceBase {
 
 					this.log('error', error.toString())
 
-					if (this.config.restartOnError) {
-						setTimeout(() => {
-							this._initMqtt()
-						}, 1000)
+					if (this.config.restartOnError ) {
+						this._destroyMqtt()
+
+						if (!this._restartTimeout) {
+							this._restartTimeout = setTimeout(() => {
+								this._restartTimeout = undefined
+								this._initMqtt()
+							}, 1000)
+						}
 					}
 				})
 
