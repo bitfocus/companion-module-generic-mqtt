@@ -50,7 +50,7 @@ export const configFields = [
 		type: 'checkbox',
 		id: 'restartOnError',
 		width: 6,
-		label: 'Restart module on connection error',
+		label: 'Restart MQTT connection on error',
 		default: true,
 	}
 ]

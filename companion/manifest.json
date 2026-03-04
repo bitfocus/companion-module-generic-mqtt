@@ -1,9 +1,11 @@
 {
+	"$schema": "../node_modules/@companion-module/base/assets/manifest.schema.json",
 	"id": "generic-mqtt",
+	"type": "connection",
 	"name": "generic-mqtt",
 	"shortname": "mqtt",
 	"description": "MQTT module for Companion app",
-	"version": "2.0.2",
+	"version": "0.0.0",
 	"license": "MIT",
 	"repository": "git+https://github.com/bitfocus/companion-module-generic-mqtt.git",
 	"bugs": "https://github.com/bitfocus/companion-module-generic-mqtt/issues",
@@ -19,7 +21,7 @@
 	],
 	"legacyIds": ["mqtt"],
 	"runtime": {
-		"type": "node18",
+		"type": "node22",
 		"api": "nodejs-ipc",
 		"apiVersion": "0.0.0",
 		"entrypoint": "../index.js"

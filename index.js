@@ -1,15 +1,16 @@
-import { combineRgb, InstanceBase, InstanceStatus, runEntrypoint } from '@companion-module/base'
+// @ts-check
+import { combineRgb, InstanceBase, InstanceStatus } from '@companion-module/base'
 import { configFields } from './config.js'
 import { upgradeScripts } from './upgrade.js'
 import mqtt from 'mqtt'
 import debounceFn from 'debounce-fn'
 import objectPath from 'object-path'
 
-class GenericMqttInstance extends InstanceBase {
+export const UpgradeScripts = upgradeScripts
+
+export default class GenericMqttInstance extends InstanceBase {
 	constructor(internal) {
 		super(internal)
-
-		this.isRestarting = false
 
 		this.mqtt_topic_subscriptions = new Map()
 		this.mqtt_topic_value_cache = new Map()
@@ -61,16 +62,16 @@ class GenericMqttInstance extends InstanceBase {
 		this.mqtt_topic_value_cache = new Map()
 
 		// And then subscribe
-		this.subscribeFeedbacks()
+		this.checkAllFeedbacks()
 	}
 
 	_initFeedbackDefinitions() {
 		this.setFeedbackDefinitions({
 			mqtt_variable: {
 				type: 'advanced',
-				name: 'Update variable with value from MQTT topic',
+				name: '(Deprecated) Update variable with value from MQTT topic',
 				description:
-					'Receive messages from the MQTT broker and set the value to a variable. Variables can be used on any button.',
+					'This is deprecated and will be removed in a future release. Please update usages to store the new \'Get MQTT topic value\' feedback into a local variable.',
 				options: [
 					{
 						type: 'textinput',
@@ -90,19 +91,22 @@ class GenericMqttInstance extends InstanceBase {
 						label: 'Variable',
 						id: 'variable',
 						default: '',
+						disableAutoExpression: true,
 					},
 				],
-				callback: () => {
-					// Nothing to do, as this feeds a variable
-					return {}
-				},
-				subscribe: async (feedback) => {
+				callback: (feedback) => {
+					// Update subscription
+					if (feedback.previousOptions?.subscribeTopic) {
+						// Unsubscribe from previous topic if it exists
+						this._unsubscribeToTopic(feedback.previousOptions.subscribeTopic, feedback.id)
+					}
+
 					const subData = {
 						variableName: feedback.options.variable,
 						subpath: feedback.options.subpath,
 					}
 
-					let subscribeTopic = await this.parseVariablesInString(feedback.options.subscribeTopic)
+					let subscribeTopic = (feedback.options.subscribeTopic)
 					this._subscribeToTopic(subscribeTopic, feedback.id, 'mqtt_variable', subData)
 					this.debounceUpdateInstanceVariables()
 
@@ -111,17 +115,18 @@ class GenericMqttInstance extends InstanceBase {
 					if (message !== undefined) {
 						this._updateFeedbackVariables([[subscribeTopic, subData]])
 					}
+
+					// Nothing to do, as this feeds a variable
+					return {}
 				},
 				unsubscribe: async (feedback) => {
-					let subscribeTopic = await this.parseVariablesInString(feedback.options.subscribeTopic)
-					this._unsubscribeToTopic(subscribeTopic, feedback.id)
+					this._unsubscribeToTopic(feedback.options.subscribeTopic, feedback.id)
 					this.debounceUpdateInstanceVariables()
 				},
 			},
 			mqtt_value: {
 				type: 'boolean',
-				name: 'Change style from MQTT topic value',
-				description: 'If the specified MQTT topic value matches this condition, change style of the bank.',
+				name: 'Check MQTT topic value',
 				defaultStyle: {
 					color: combineRgb(0, 0, 0),
 					bgcolor: combineRgb(0, 255, 0),
@@ -160,17 +165,29 @@ class GenericMqttInstance extends InstanceBase {
 							{ id: 'gt', label: '>' },
 							{ id: 'gte', label: '>=' },
 						],
+						disableAutoExpression:true,
 					},
 				],
 				callback: async (feedback) => {
-					let subscribeTopic = await this.parseVariablesInString(feedback.options.subscribeTopic)
+					// Update subscription
+					if (feedback.options.subscribeTopic !== feedback.previousOptions?.subscribeTopic) {
+						if (feedback.previousOptions?.subscribeTopic) {
+							// Unsubscribe from previous topic if it exists
+							this._unsubscribeToTopic(feedback.previousOptions.subscribeTopic, feedback.id)
+						}
+
+						let subscribeTopic = (feedback.options.subscribeTopic)
+						this._subscribeToTopic(subscribeTopic, feedback.id, 'mqtt_value')
+					}
+
+					let subscribeTopic = feedback.options.subscribeTopic
 					let value = this.mqtt_topic_value_cache.get(subscribeTopic)
 					if (value !== undefined) {
 						if (feedback.options.subpath) {
 							value = objectPath.get(JSON.parse(value), feedback.options.subpath)
 						}
 
-						const targetValue = await this.parseVariablesInString(feedback.options.value)
+						const targetValue = feedback.options.value
 						const checks = {
 							eq: value == targetValue,
 							ne: value != targetValue,
@@ -184,12 +201,8 @@ class GenericMqttInstance extends InstanceBase {
 
 					return false
 				},
-				subscribe: async (feedback) => {
-					let subscribeTopic = await this.parseVariablesInString(feedback.options.subscribeTopic)
-					this._subscribeToTopic(subscribeTopic, feedback.id, 'mqtt_value')
-				},
 				unsubscribe: async (feedback) => {
-					let subscribeTopic = await this.parseVariablesInString(feedback.options.subscribeTopic)
+					let subscribeTopic = feedback.options.subscribeTopic
 					this._unsubscribeToTopic(subscribeTopic, feedback.id)
 				},
 			},
@@ -197,6 +210,8 @@ class GenericMqttInstance extends InstanceBase {
 	}
 
 	_subscribeToTopic(topic, feedbackId, feedbackType, data) {
+		if (!topic) return
+
 		const subscriptions = this.mqtt_topic_subscriptions.get(topic) || {}
 		if (Object.keys(subscriptions).length === 0) {
 			this.mqttClient.subscribe(topic, (err) => {
@@ -215,6 +230,8 @@ class GenericMqttInstance extends InstanceBase {
 		}
 	}
 	_unsubscribeToTopic(topic, feedbackId) {
+		if (!topic) return
+		
 		const subscriptions = this.mqtt_topic_subscriptions.get(topic) || {}
 		if (Object.keys(subscriptions).length !== 0 && subscriptions[feedbackId]) {
 			delete subscriptions[feedbackId]
@@ -279,8 +296,8 @@ class GenericMqttInstance extends InstanceBase {
 				callback: async (action) => {
 					let opt = action.options
 
-					let topic = await this.parseVariablesInString(opt.topic)
-					let payload = await this.parseVariablesInString(opt.payload)
+					let topic = opt.topic
+					let payload = opt.payload
 					let qos = opt.qos
 					let retain = opt.retain
 
@@ -419,7 +436,7 @@ class GenericMqttInstance extends InstanceBase {
 					msgValue = objectPath.get(JSON.parse(msgValue), data.subpath)
 				}
 
-				newValues[data.variableName] = typeof msgValue === 'object' ? JSON.stringify(msgValue) : msgValue
+				newValues[data.variableName] = msgValue
 			}
 		}
 
@@ -429,15 +446,14 @@ class GenericMqttInstance extends InstanceBase {
 	}
 
 	_updateInstanceVariables() {
-		const vars = []
+		const vars = {}
 
 		for (const [key, uses] of this.mqtt_topic_subscriptions.entries()) {
 			Object.values(uses).forEach((use) => {
 				if (use.type === 'mqtt_variable') {
-					vars.push({
+					vars[use.variableName] = {
 						name: `MQTT value from topic: ${key}`,
-						variableId: use.variableName,
-					})
+					}
 				}
 			})
 		}
@@ -449,4 +465,3 @@ class GenericMqttInstance extends InstanceBase {
 	}
 }
 
-runEntrypoint(GenericMqttInstance, upgradeScripts)
