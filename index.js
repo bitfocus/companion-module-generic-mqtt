@@ -124,9 +124,57 @@ export default class GenericMqttInstance extends InstanceBase {
 					this.debounceUpdateInstanceVariables()
 				},
 			},
+			mqtt_value2: {
+				type: 'value',
+				name: 'Get MQTT topic value',
+				options: [
+					{
+						type: 'textinput',
+						label: 'Topic',
+						id: 'subscribeTopic',
+						default: '',
+						useVariables: true,
+					},
+					{
+						type: 'checkbox',
+						label: 'Parse message as JSON',
+						id: 'parseJson',
+						default: false,
+						disableAutoExpression: true,
+						tooltip: 'If enabled, the module will attempt to parse the MQTT message as JSON before returning it. If parsing fails, the raw message will be returned.',
+					}
+				],
+				callback: (feedback) => {
+					// Update subscription
+					if (feedback.previousOptions?.subscribeTopic) {
+						// Unsubscribe from previous topic if it exists
+						this._unsubscribeToTopic(feedback.previousOptions.subscribeTopic, feedback.id)
+					}
+
+
+					let subscribeTopic = (feedback.options.subscribeTopic)
+					this._subscribeToTopic(subscribeTopic, feedback.id, 'mqtt_value2')
+					
+					let value = this.mqtt_topic_value_cache.get(subscribeTopic)
+
+					if (feedback.options.parseJson) {
+						try {
+							value = JSON.parse(value)
+						} catch (e) {
+							this.log('error', `Failed to parse MQTT message as JSON: ${e.toString()}`)
+						}
+					}
+
+					return value
+				},
+				unsubscribe: async (feedback) => {
+					this._unsubscribeToTopic(feedback.options.subscribeTopic, feedback.id)
+				},
+			},
 			mqtt_value: {
 				type: 'boolean',
-				name: 'Check MQTT topic value',
+				name: '(Deprecated) Check MQTT topic value',
+				description: 'This is deprecated and will be removed in a future release. Please update usages to use the new \'Get MQTT topic value\' feedback to create a local variable and define your own comparison in an expression.',
 				defaultStyle: {
 					color: combineRgb(0, 0, 0),
 					bgcolor: combineRgb(0, 255, 0),
@@ -231,7 +279,7 @@ export default class GenericMqttInstance extends InstanceBase {
 	}
 	_unsubscribeToTopic(topic, feedbackId) {
 		if (!topic) return
-		
+
 		const subscriptions = this.mqtt_topic_subscriptions.get(topic) || {}
 		if (Object.keys(subscriptions).length !== 0 && subscriptions[feedbackId]) {
 			delete subscriptions[feedbackId]
