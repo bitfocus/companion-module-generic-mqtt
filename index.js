@@ -43,7 +43,7 @@ export default class GenericMqttInstance extends InstanceBase {
 
 	_resubscribeToTopics() {
 		// Unsubscribe from everything
-		for (const topic of this.mqtt_topic_subscriptions.values()) {
+		for (const topic of this.mqtt_topic_subscriptions.keys()) {
 			try {
 				this.mqttClient.unsubscribe(topic, (err) => {
 					if (!err) {
