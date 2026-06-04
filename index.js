@@ -261,13 +261,19 @@ export default class GenericMqttInstance extends InstanceBase {
 
 		const subscriptions = this.mqtt_topic_subscriptions.get(topic) || {}
 		if (Object.keys(subscriptions).length === 0) {
-			this.mqttClient.subscribe(topic, (err) => {
-				if (!err) {
-					this.log('debug', `Successfully subscribed to topic: ${topic}`)
+			this.mqttClient.subscribe(topic, (err, granted) => {
+				if (err) {
+					this.log('debug', `Failed to subscribe to topic: ${topic}. Error: ${err}`)
 					return
 				}
 
-				this.log('debug', `Failed to subscribe to topic: ${topic}. Error: ${err}`)
+				const rejected = (granted || []).filter((g) => g && g.qos >= 128)
+				if (rejected.length) {
+					this.log('warn', `Subscribe rejected for topic: ${topic} (reasonCode=${rejected[0].qos})`)
+					return
+				}
+
+				this.log('debug', `Successfully subscribed to topic: ${topic}`)
 			})
 		}
 
@@ -307,39 +313,65 @@ export default class GenericMqttInstance extends InstanceBase {
 	}
 
 	_initActionDefinitions() {
+		const isV5 = Number(this.config.version) === 5
+
+		const publishOptions = [
+			{
+				type: 'textinput',
+				label: 'Topic',
+				id: 'topic',
+				default: '',
+				useVariables: true,
+			},
+			{
+				type: 'textinput',
+				label: 'Payload',
+				id: 'payload',
+				default: '',
+				useVariables: true,
+			},
+			{
+				type: 'number',
+				label: 'QoS',
+				id: 'qos',
+				default: 0,
+				min: 0,
+				max: 2,
+			},
+			{
+				type: 'checkbox',
+				label: 'Retain?',
+				id: 'retain',
+				default: false,
+			},
+		]
+
+		if (isV5) {
+			publishOptions.push(
+				{
+					type: 'number',
+					label: 'Message Expiry Interval (s, v5)',
+					id: 'messageExpiryInterval',
+					default: 0,
+					min: 0,
+					max: 4294967295,
+					tooltip: '0 = not set. Otherwise the broker will drop the message after N seconds.',
+				},
+				{
+					type: 'textinput',
+					label: 'Content Type (v5)',
+					id: 'contentType',
+					default: '',
+					useVariables: true,
+					tooltip: 'MIME type of the payload, e.g. application/json. Empty = not set.',
+				},
+			)
+		}
+
 		this.setActionDefinitions({
 			publish: {
 				name: 'Publish Message',
-				options: [
-					{
-						type: 'textinput',
-						label: 'Topic',
-						id: 'topic',
-						default: '',
-						useVariables: true,
-					},
-					{
-						type: 'textinput',
-						label: 'Payload',
-						id: 'payload',
-						default: '',
-						useVariables: true,
-					},
-					{
-						type: 'number',
-						label: 'QoS',
-						id: 'qos',
-						default: 0,
-						min: 0,
-						max: 2,
-					},
-					{
-						type: 'checkbox',
-						label: 'Retain?',
-						id: 'retain',
-						default: false,
-					},
-				],
+				options: publishOptions,
 				callback: async (action) => {
 					let opt = action.options
 
@@ -350,7 +382,17 @@ export default class GenericMqttInstance extends InstanceBase {
 
 					this.log('debug', `Sending MQTT message ${topic}: ${payload}`)
 
-					this.mqttClient.publish(topic, payload, { qos: qos, retain: retain })
+					const publishOpts = { qos: qos, retain: retain }
+					if (isV5) {
+						const properties = {}
+						if (opt.messageExpiryInterval > 0) properties.messageExpiryInterval = opt.messageExpiryInterval
+						if (opt.contentType) properties.contentType = opt.contentType
+						if (Object.keys(properties).length) publishOpts.properties = properties
+					}
+
+					this.mqttClient.publish(topic, payload, publishOpts, (err) => {
+						if (err) this.log('warn', `Publish failed for ${topic}: ${err.message || err}`)
+					})
 				},
 			},
 		})
@@ -365,7 +407,7 @@ export default class GenericMqttInstance extends InstanceBase {
 
 	_initMqtt() {
 		this._destroyMqtt()
-
+this.log('debug', `Start Connecting MQTT`)
 		try {
 			if (this.config.broker_ip) {
 				const brokerPort = isNaN(parseInt(this.config.port)) ? '' : `:${this.config.port}`
@@ -373,18 +415,28 @@ export default class GenericMqttInstance extends InstanceBase {
 
 				this.updateStatus(InstanceStatus.Connecting)
 
+				const protocolVersion = Number(this.config.version) || 4
+				const isV5 = protocolVersion === 5
+this.log('debug', `C1`)
 				const options = {
 					username: this.config.user,
 					password: this.config.password,
-					protocolVersion: this.config.version,
+					protocolVersion,
 				}
 
 				if (this.config.clientId) {
 					options.clientId = this.config.clientId
 				}
 
+				if (isV5 && this.config.persistentSession) {
+					options.clean = false
+					options.properties = {
+						sessionExpiryInterval: this.config.sessionExpiryInterval ?? 3600,
+					}
+				}
+this.log('debug', `C2`)
 				this.mqttClient = mqtt.connect(brokerUrl, options)
-
+this.log('debug', `C3`)
 				this.mqttClient.on('connect', () => {
 					this.updateStatus(InstanceStatus.Ok)
 
@@ -394,7 +446,8 @@ export default class GenericMqttInstance extends InstanceBase {
 				this.mqttClient.on('error', (error) => {
 					this.updateStatus(InstanceStatus.UnknownError, error.message || error.toString())
 
-					this.log('error', error.toString())
+					const codeSuffix = error.code != null ? ` (code=${error.code})` : ''
+					this.log('error', `${error.toString()}${codeSuffix}`)
 
 					if (this.config.restartOnError ) {
 						this._destroyMqtt()
@@ -406,6 +459,15 @@ export default class GenericMqttInstance extends InstanceBase {
 							}, 1000)
 						}
 					}
+				})
+
+				this.mqttClient.on('disconnect', (packet) => {
+					const reasonCode = packet?.reasonCode
+					const reasonString = packet?.properties?.reasonString
+					this.log(
+						'warn',
+						`MQTT broker disconnect (reasonCode=${reasonCode}${reasonString ? `, reason="${reasonString}"` : ''})`,
+					)
 				})
 
 				this.mqttClient.on('offline', () => {
