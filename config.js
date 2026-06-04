@@ -28,6 +28,17 @@ export const configFields = [
 		max: 65535,
 	},
 	{
+		type: 'dropdown',
+		id: 'version',
+		label: 'Version',
+		width: 4,
+		default: 4,
+		choices: [
+			{ id: 4, label: 'v3.1.1' },
+			{ id: 5, label: 'v5' },
+		],
+	},
+	{
 		type: 'textinput',
 		id: 'user',
 		width: 6,

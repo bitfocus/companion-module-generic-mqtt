@@ -1,4 +1,3 @@
-// @ts-check
 import { combineRgb, InstanceBase, InstanceStatus } from '@companion-module/base'
 import { configFields } from './config.js'
 import { upgradeScripts } from './upgrade.js'
@@ -377,6 +376,7 @@ export default class GenericMqttInstance extends InstanceBase {
 				const options = {
 					username: this.config.user,
 					password: this.config.password,
+					protocolVersion: this.config.version,
 				}
 
 				if (this.config.clientId) {
