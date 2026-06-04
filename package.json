@@ -8,9 +8,9 @@
 	},
 	"license": "MIT",
 	"dependencies": {
-		"@companion-module/base": "~2.0.0",
+		"@companion-module/base": "~2.0.4",
 		"debounce-fn": "^6.0.0",
-		"mqtt": "^4.3.8",
+		"mqtt": "^5.15.1",
 		"object-path": "^0.11.8"
 	},
 	"repository": {
@@ -18,7 +18,9 @@
 		"url": "git+https://github.com/bitfocus/companion-module-generic-mqtt.git"
 	},
 	"devDependencies": {
-		"@companion-module/tools": "^3.0.0"
+		"@companion-module/tools": "^3.0.1",
+		"eslint": "^9.39.3",
+		"prettier": "^3.8.3"
 	},
 	"packageManager": "yarn@4.13.0"
 }
