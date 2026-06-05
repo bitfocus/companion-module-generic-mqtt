@@ -407,7 +407,7 @@ export default class GenericMqttInstance extends InstanceBase {
 
 	_initMqtt() {
 		this._destroyMqtt()
-this.log('debug', `Start Connecting MQTT`)
+
 		try {
 			if (this.config.broker_ip) {
 				const brokerPort = isNaN(parseInt(this.config.port)) ? '' : `:${this.config.port}`
@@ -417,7 +417,7 @@ this.log('debug', `Start Connecting MQTT`)
 
 				const protocolVersion = Number(this.config.version) || 4
 				const isV5 = protocolVersion === 5
-this.log('debug', `C1`)
+
 				const options = {
 					username: this.config.user,
 					password: this.config.password,
@@ -434,9 +434,9 @@ this.log('debug', `C1`)
 						sessionExpiryInterval: this.config.sessionExpiryInterval ?? 3600,
 					}
 				}
-this.log('debug', `C2`)
+
 				this.mqttClient = mqtt.connect(brokerUrl, options)
-this.log('debug', `C3`)
+
 				this.mqttClient.on('connect', () => {
 					this.updateStatus(InstanceStatus.Ok)
 
