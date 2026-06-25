@@ -28,6 +28,17 @@ export const configFields = [
 		max: 65535,
 	},
 	{
+		type: 'dropdown',
+		id: 'version',
+		label: 'Version',
+		width: 4,
+		default: 4,
+		choices: [
+			{ id: 4, label: 'v3.1.1' },
+			{ id: 5, label: 'v5' },
+		],
+	},
+	{
 		type: 'textinput',
 		id: 'user',
 		width: 6,
@@ -52,5 +63,25 @@ export const configFields = [
 		width: 6,
 		label: 'Restart MQTT connection on error',
 		default: true,
-	}
+	},
+	{
+		type: 'checkbox',
+		id: 'persistentSession',
+		width: 6,
+		label: 'Persistent session (v5)',
+		default: false,
+		isVisible: (options) => Number(options.version) === 5,
+		tooltip: 'Enables clean=false + session expiry so subscriptions and QoS≥1 messages survive reconnects. Requires a stable client ID.',
+	},
+	{
+		type: 'number',
+		id: 'sessionExpiryInterval',
+		width: 6,
+		label: 'Session expiry interval (s, v5)',
+		default: 3600,
+		min: 0,
+		max: 4294967295,
+		isVisible: (options) => Number(options.version) === 5 && !!options.persistentSession,
+		tooltip: '4294967295 = unlimited. 0 = expires immediately on disconnect.',
+	},
 ]
